@@ -79,3 +79,15 @@ test('product consideration, repurchase flags and accumulated strategy pressure 
  assert.equal(validState({...state,products:[{...product,involvement:'bogus'}]}),false);assert.equal(validState({...state,products:[{...product,repurchasePossible:'yes'}]}),false);
  const bad=structuredClone(state);bad.history[0].memoryAfter.strategyStates.p.adPressure=2;assert.equal(validState(bad),false);
 });
+
+test('saved business sessions and product deletion undo survive reload without mixing companies',async()=>{
+ const {saveBusinessState,businessKey,activateBusiness,deleteProduct}=await import('../business-state.mjs');
+ let count=0;const makeId=()=>`store-${++count}`,b=(name,industry)=>({id:'form',name,industry,market:'B2C',audience:''});
+ let a=saveBusinessState(newState(),b('기업 A','saas'),[],makeId);a.notes='A 기업 노트';a=deleteProduct(a,a.products[0].id);
+ const state=saveBusinessState(a,b('기업 B','food'),[],makeId);assert.equal(validState(state),true);
+ const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
+ try{const restored=loadGame('companies');assert.equal(restored.business.name,'기업 B');assert.ok(restored.products.every(p=>p.businessId===restored.business.id));const returned=activateBusiness(restored,businessKey(a.business));assert.equal(returned.notes,'A 기업 노트');assert.equal(returned.products.length,1);assert.equal(returned.deletedProduct.product.id,a.deletedProduct.product.id);assert.equal(validState(returned),true);}finally{globalThis.localStorage=old;}
+ const broken=structuredClone(state);broken.businessSessions[businessKey(a.business)].products[0].price=-1;assert.equal(validState(broken),false);
+ const badUndo=structuredClone(state);badUndo.deletedProduct={product:state.products[0],index:-1,wasSelected:true};assert.equal(validState(badUndo),false);
+ assert.equal(validState({...state,products:[{...state.products[0],priceEstimated:'yes'}]}),false);
+});
