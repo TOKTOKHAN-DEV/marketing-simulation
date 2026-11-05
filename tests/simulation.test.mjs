@@ -57,13 +57,13 @@ test('lesson opening and waiting room are separate from unrestricted media selec
  assert.equal(validateRequest({...r,stage:4},{...config,openStage:4}),null);
 });
 
-test('one continuous timeline can exceed twelve months under the same lesson',()=>{
+test('one annual timeline runs M1 through M12 independently of lesson topics and rejects M13',()=>{
  let memory=initialMemory();const months=[];
- for(let month=1;month<=15;month++){
+ for(let month=1;month<=12;month++){
   const r=request({stage:1,round:month,memory,plan:{...initialPlan(),units:{owned:2,search:1,micro:1}}});
   assert.equal(validateRequest(r,config),null);const result=simulate(r);assert.equal(result.round,month);months.push(result.metrics.month);memory=result.memoryAfter;
  }
- assert.deepEqual(months,Array.from({length:15},(_,i)=>i+1));assert.ok(memory.organicAssets>0);
+ assert.deepEqual(months,Array.from({length:12},(_,i)=>i+1));assert.ok(memory.organicAssets>0);assert.equal(validateRequest(request({memory,round:13}),config).status,400);
 });
 test('review topic can record another month and stale month numbers cannot reset the timeline',()=>{
  const first=simulate(request());const next=request({stage:4,round:2,memory:first.memoryAfter});

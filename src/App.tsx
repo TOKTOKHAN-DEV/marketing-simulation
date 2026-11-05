@@ -1,3 +1,5 @@
+import {annualPlan,fillAnnualPlans,PLAN_MONTHS} from '../annual.mjs';
+import {budgetFor,memoryForHistory} from '../funding.mjs';
 import {findCompany} from './catalog';
 import {saveBusinessState,activateBusiness,deleteProduct,restoreProduct} from '../business-state.mjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -52,27 +54,36 @@ export default function App() {
   },[state,config,ready,storageError]);
   useEffect(()=>{if(toast){const id=window.setTimeout(()=>setToast(''),4500);return()=>clearTimeout(id);}},[toast]);
   const patch=(p:Partial<GameState>)=>setState(prev=>({...prev,...p}));
-  const horizon=state.projectionHorizon||3;
-  const setHorizon=(value:number)=>patch({projectionHorizon:value===6?6:3});
+  const horizon=12;
   const navigate=(view:View)=>{patch({view});window.scrollTo({top:0,behavior:'smooth'});};
   const stage=Math.min(state.stage,config?.openStage||1);
-  const editing=state.view==='mix'?state.history.find(h=>h.id===state.editingCampaignId):undefined;
+  const actualMemory=useMemo(()=>memoryForHistory(state.history,initialMemory()),[state.history]);
+  const nextMonth=actualMemory.month+1,targetMonth=state.planningMonth??Math.min(nextMonth,PLAN_MONTHS);
+  const editing=state.view==='mix'?state.history.find(h=>h.id===state.editingCampaignId||h.metrics.month===targetMonth&&targetMonth<nextMonth):undefined;
+  const fallbackProduct=state.products.find(p=>p.id===state.productId)||state.products[0];
+  const legacyPlan=state.plans[`${fallbackProduct?.id}:monthly`]||initialPlan();
+  const annualInput={business:state.business,products:state.products,history:state.history,monthlyPlans:state.monthlyPlans,productId:fallbackProduct?.id||'',legacyPlan};
+  const year=useMemo(()=>annualPlan(annualInput),[state.business,state.products,state.history,state.monthlyPlans,state.productId,legacyPlan]);
+  const entry=year.entries.find(e=>e.month===targetMonth);
   const workingBusiness=editing?.businessSnapshot||state.business;
-  const product=editing?.productSnapshot||state.products.find(p=>p.id===state.productId)||state.products[0];
+  const product=editing?.productSnapshot||(state.view==='mix'?state.products.find(p=>p.id===entry?.productId):undefined)||fallbackProduct;
   const planKey=`${product?.id||'new'}:monthly`;
-  const plan=editing?(state.historyDrafts?.[editing.id]||planForRecord(editing)):(state.plans[planKey]||initialPlan());
+  const plan=editing?(state.historyDrafts?.[editing.id]||planForRecord(editing)):(entry?.plan||initialPlan());
   const revision=useMemo(()=>previewRevision(state.history,state.historyDrafts||{}),[state.history,state.historyDrafts]);
   const pendingRevision=revision.changed>0;
-  const memory=editing?(revision.history.find(h=>h.id===editing.id)?.memoryBefore||editing.memoryBefore):(state.history.at(-1)?.memoryAfter||initialMemory());
+  const memory=editing?(revision.history.find(h=>h.id===editing.id)?.memoryBefore||editing.memoryBefore):state.view==='mix'?(entry?.memoryBefore||actualMemory):actualMemory;
   const productsForPreview=editing?(editing.productsSnapshot||[editing.productSnapshot]):state.products;
-  const preview=useMemo(()=>workingBusiness&&product?project({business:workingBusiness,product,products:productsForPreview,plan,memory,stage},editing?1:horizon):[],[workingBusiness,product,productsForPreview,plan,memory,horizon,stage,editing]);
+  const preview=useMemo(()=>workingBusiness&&product?project({business:workingBusiness,product,products:productsForPreview,plan,memory,stage},1):[],[workingBusiness,product,productsForPreview,plan,memory,stage]);
   const setPlan=(value:Plan)=>setState(prev=>{
     if(editing){const historyDrafts={...prev.historyDrafts};if(JSON.stringify(value)===JSON.stringify(planForRecord(editing)))delete historyDrafts[editing.id];else historyDrafts[editing.id]=value;return{...prev,historyDrafts};}
-    return{...prev,plans:{...prev.plans,[planKey]:value}};
+    if(!product||targetMonth<1||targetMonth>PLAN_MONTHS)return prev;
+    return{...prev,monthlyPlans:{...prev.monthlyPlans,[targetMonth]:{productId:product.id,plan:value}}};
   });
-  const selectMonth=(id?:string)=>{patch({editingCampaignId:id,view:'mix'});window.scrollTo({top:0,behavior:'smooth'});};
-  const reusable=[...(editing?state.history.slice(0,state.history.findIndex(h=>h.id===editing.id)):state.history)].reverse().find(h=>h.productSnapshot.id===product?.id);
-  const reuse=()=>{if(reusable){setPlan({...clearCreativeActions(planForRecord(reusable)),cadence:undefined});setToast('이전 전략을 불러왔어요. 선택한 달에 맞게 조정하세요.');}};
+  const selectPlanMonth=(month:number)=>{if(!Number.isInteger(month)||month<1||month>PLAN_MONTHS)return;const record=state.history.find(h=>h.metrics.month===month),slot=state.monthlyPlans?.[month];patch({planningMonth:month,editingCampaignId:record?.id,view:'mix',...(slot&&state.products.some(p=>p.id===slot.productId)?{productId:slot.productId}:{})});window.scrollTo({top:0,behavior:'smooth'});};
+  const selectMonth=(id?:string)=>selectPlanMonth(id?state.history.find(h=>h.id===id)?.metrics.month||1:Math.min(nextMonth,PLAN_MONTHS));
+  const reusable=[...year.entries].reverse().find(e=>e.month<targetMonth&&e.status!=='empty'&&e.productId===product?.id)||[...year.entries].reverse().find(e=>e.month<targetMonth&&e.status!=='empty');
+  const reuse=()=>{if(reusable){const record=state.history.find(h=>h.metrics.month===reusable.month);setPlan({...clearCreativeActions(record?planForRecord(record):reusable.plan),cadence:undefined});setToast(`M${reusable.month} 전략을 불러왔어요. M${targetMonth}에 맞게 조정하세요.`);}};
+  const fillFuture=()=>{if(!product||pendingRevision||running)return;setState(prev=>({...prev,monthlyPlans:fillAnnualPlans(annualInput,targetMonth,{productId:product.id,plan})}));setToast('M12까지 비어 있는 달에 재투자 예산에 맞춰 조합을 복사했어요.');};
   const applyRevision=async()=>{
     if(inFlight.current||!config)return;
     if(revision.error){setToast(`${revision.error.month}개월 차: ${revision.error.message}`);return;}
@@ -91,7 +102,7 @@ export default function App() {
   };
   const undoRevision=()=>{if(state.revisionUndo&&!pendingRevision&&!running){patch({history:state.revisionUndo.history,revisionUndo:undefined,historyDrafts:{}});setToast('수정 적용 전 결과로 되돌렸어요.');}};
   const openProduct=(p?:Product)=>{if(inFlight.current)return;if(!state.business){setDialog('business');return;}if(!p&&state.products.length>=50){setToast('상품은 50개까지 등록할 수 있어요.');return;}setEditProduct(p);setDialog('product');};
-  const selectProduct=(id:string)=>{if(inFlight.current)return;patch({productId:id,editingCampaignId:undefined});setToast('선택한 상품으로 지표와 미디어 믹스를 전환했어요.');};
+  const selectProduct=(id:string)=>{if(inFlight.current)return;patch({productId:id,editingCampaignId:undefined,...(state.view==='mix'&&!editing?{monthlyPlans:{...state.monthlyPlans,[targetMonth]:{productId:id,plan}}}:{})});setToast('선택한 상품으로 지표와 미디어 믹스를 전환했어요.');};
   const saveBusiness=(business:Business)=>{if(inFlight.current)return;const company=findCompany(business),matched=company?{...business,catalogCompanyId:company.id}:business;setState(prev=>saveBusinessState(prev,matched,company?.products));setDialog(null);setToast('비즈니스와 해당 기업의 상품 목록을 준비했어요. 상품은 자유롭게 수정·삭제하세요.');};
   const removeProduct=(p:Product)=>{if(inFlight.current)return;setState(prev=>deleteProduct(prev,p.id));setToast(`${p.name}을 목록에서 삭제했어요. 삭제 취소로 복원할 수 있어요.`);};
   const undoProductDelete=()=>{if(inFlight.current)return;setState(prev=>restoreProduct(prev));setToast('삭제한 상품을 복원했어요.');};
@@ -104,6 +115,7 @@ export default function App() {
   const run=async()=>{
     if(inFlight.current)return;
     if(editing){await applyRevision();return;}
+    if(!editing&&(targetMonth!==nextMonth||nextMonth>PLAN_MONTHS)){setToast(nextMonth>PLAN_MONTHS?'12개월 실행을 마쳤어요. 기존 달을 수정할 수 있어요.':`계획은 저장됐어요. 먼저 M${nextMonth}부터 순서대로 실행해주세요.`);return;}
     if(pendingRevision){setToast('과거 달의 수정안을 먼저 적용하거나 취소해주세요.');return;}
     if(!state.business){setDialog('business');return;}
     if(!product){openProduct();return;}
@@ -113,7 +125,7 @@ export default function App() {
       const res=await fetch('/api/simulate',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify({stage,round:memory.month+1,workshopId:config!.workshopId,business:state.business,product,products:state.products,plan,memory})});
       const result=await res.json();
       if(!res.ok)throw new Error(result.error||'실행하지 못했어요.');
-      setState(prev=>({...prev,history:[...prev.history,result as Campaign],revisionUndo:undefined,deletedProduct:undefined,plans:{...prev.plans,[planKey]:{...clearCreativeActions(plan),units:{},hypothesis:'',cadence:undefined}},view:'dashboard'}));
+      setState(prev=>({...prev,history:[...prev.history,result as Campaign],monthlyPlans:{...prev.monthlyPlans,[result.metrics.month]:{productId:product.id,plan}},planningMonth:Math.min(PLAN_MONTHS,result.metrics.month+1),editingCampaignId:result.metrics.month===PLAN_MONTHS?result.id:undefined,revisionUndo:undefined,deletedProduct:undefined,plans:{...prev.plans,[planKey]:{...clearCreativeActions(plan),units:{},hypothesis:'',cadence:undefined}},view:'dashboard'}));
       setToast(`${result.metrics.month}개월 차 완료! 매출과 브랜드 변화를 확인하세요.`);
       window.scrollTo({top:0,behavior:'smooth'});
     }catch(e){setToast(e instanceof Error?e.message:'서버에 연결할 수 없어요.');}
@@ -129,10 +141,10 @@ export default function App() {
     <main className="main-content">
       {storageError&&<div className="error-banner" role="alert"><Info size={16}/><span>{storageError}</span><button onClick={exportAll}>기록 내보내기</button></div>}
       <div className="page-heading"><div><span className="eyebrow"><span className="pixel-dot"/> {state.view==='dashboard'?'YOUR BUSINESS, NEXT LEVEL.':state.view==='mix'?'MAKE YOUR NEXT MOVE.':state.view==='projection'?'FROM BUDGET TO GROWTH.':'THE START OF YOUR JOURNEY.'}</span><h1>{state.view==='dashboard'?'우리 브랜드, 잘 자라고 있나요?':state.view==='mix'?'좋은 조합이, 좋은 성장을.':state.view==='projection'?'숫자로 그려보는 다음 성장.':'비즈니스와 상품, 따로 또 같이.'}</h1><p>{state.view==='dashboard'?'고객의 여정과 브랜드의 변화를 한눈에.':state.view==='mix'?'많이 알리는 것과, 깊이 신뢰받는 것의 균형을 찾아보세요.':state.view==='projection'?'AARRR로 연결한 예산부터 매출까지의 흐름.':'하나의 비즈니스에 여러 상품을 만들어 실험할 수 있어요.'}</p></div>{product&&state.view!=='business'&&<div className="product-picker"><span>실험할 상품</span>{editing?<span className="historical-product">{product.name}<small>{won(product.price)} · 당시 상품 설정</small></span>:<Select label="실험할 상품" value={product.id} onChange={selectProduct} options={state.products.map(p=>({value:p.id,label:p.name,detail:`${salesLabel(p.purchaseType)} · ${won(p.price)}${p.purchaseType==='subscription'?' / 월':''}`}))} disabled={running}/>}</div>}</div>
-      {state.view==='dashboard'&&<Dashboard business={state.business} product={product} history={state.history} memory={memory} forecast={preview.slice(0,3)} onBusiness={()=>setDialog('business')} onManageBusiness={()=>navigate('business')} onProduct={()=>openProduct()} onMix={()=>navigate('mix')} onProjection={()=>navigate('projection')} onModel={()=>setDialog('model')}/>}
+      {state.view==='dashboard'&&<Dashboard business={state.business} product={product} history={state.history} memory={memory} forecast={year.metrics.filter(m=>m.month>actualMemory.month).slice(0,3)} onBusiness={()=>setDialog('business')} onManageBusiness={()=>navigate('business')} onProduct={()=>openProduct()} onMix={()=>navigate('mix')} onProjection={()=>navigate('projection')} onModel={()=>setDialog('model')}/>}
       {state.view==='mix'&&(!state.business||!product)&&<section className="card prerequisite-card"><Box size={35}/><h2>{state.business?'상품을 먼저 만들어주세요.':'비즈니스부터 시작해보세요.'}</h2><p>업종과 상품 가격이 정해지면, 나의 미디어 믹스를 설계할 수 있어요.</p><button className="button primary" onClick={()=>openProduct()}><Plus size={15}/>{state.business?'상품 만들기':'비즈니스 만들기'}</button></section>}
-      {state.view==='mix'&&workingBusiness&&product&&<><MonthTimeline history={state.history} editingId={editing?.id} drafts={state.historyDrafts||{}} revision={revision} running={running} canUndo={!!state.revisionUndo} applyDisabled={config!.openStage===0} onSelect={selectMonth} onApply={applyRevision} onDiscard={()=>patch({historyDrafts:{}})} onUndo={undoRevision}/><Mix plan={plan} onChange={setPlan} stage={stage} openStage={config!.openStage} preview={preview} business={workingBusiness} product={product} memory={memory} running={running} onRun={editing?applyRevision:run} editingMonth={editing?.metrics.month} revisionPending={pendingRevision} revisionProblem={revision.error?`${revision.error.month}개월 차: ${revision.error.message}`:!editing&&pendingRevision?'과거 달의 수정안을 먼저 적용하거나 취소해주세요.':undefined} canReuse={!!reusable} onReuse={reuse} onRecommend={()=>{setPlan({...plan,cadence:{},units:recommendMix(3,Math.max(0,plan.budget),workingBusiness,product,memory,plan)});setToast('현재 브랜드와 리소스에 맞는 믹스를 채웠어요. 자유롭게 바꿔보세요.');}} onBusiness={()=>setDialog('business')} onModel={()=>setDialog('model')} onProjection={()=>navigate('projection')}/></>}
-      {state.view==='projection'&&<><Projection forecast={preview} plan={plan} business={state.business} product={product} memory={memory} onExport={exportCSV} products={state.products} outlook={state.outlook?.[`${product?.id}:${memory.month}`]} onOutlook={value=>patch({outlook:{...state.outlook,[`${product?.id}:${memory.month}`]:value}})} onModel={()=>setDialog('model')} onMix={()=>navigate('mix')} horizon={horizon} onHorizon={setHorizon}/>{stage===4&&config!.openStage>=4&&<section className="card reflection-card"><span className="eyebrow">REFLECT · TAKE IT TO YOUR BUSINESS</span><h2>오늘의 발견을, 다음 행동으로.</h2><label>가장 크게 달라진 생각은?<textarea maxLength={5000} value={state.reflection} onChange={e=>patch({reflection:e.target.value})} placeholder="숫자와 브랜드 인식의 변화에서 발견한 점을 기록하세요."/></label><label>다음 7일 안에 실행할 한 가지는?<textarea maxLength={5000} value={state.nextAction} onChange={e=>patch({nextAction:e.target.value})} placeholder="어떤 상품을, 어떤 미디어에서, 어떤 예산으로 실행할까요?"/></label><div className="reflection-actions"><button className="button secondary" onClick={()=>window.print()}>리포트 인쇄 / PDF</button><button className="button primary" onClick={exportAll}><ArrowDownToLine size={15}/>전체 기록 내보내기</button></div></section>}</>}
+      {state.view==='mix'&&workingBusiness&&product&&<><MonthTimeline history={state.history} selectedMonth={targetMonth} entries={year.entries} onPlanMonth={selectPlanMonth} editingId={editing?.id} drafts={state.historyDrafts||{}} revision={revision} running={running} canUndo={!!state.revisionUndo} applyDisabled={config!.openStage===0} onSelect={selectMonth} onApply={applyRevision} onDiscard={()=>patch({historyDrafts:{}})} onUndo={undoRevision}/><Mix plan={plan} onChange={setPlan} stage={stage} openStage={config!.openStage} preview={preview} business={workingBusiness} product={product} memory={memory} running={running} onRun={editing?applyRevision:run} editingMonth={editing?.metrics.month} revisionPending={pendingRevision} revisionProblem={revision.error?`${revision.error.month}개월 차: ${revision.error.message}`:!editing&&pendingRevision?'과거 달의 수정안을 먼저 적용하거나 취소해주세요.':undefined} canReuse={!!reusable} onReuse={reuse} onFillFuture={fillFuture} canFillFuture={targetMonth<12&&!pendingRevision} executedMonths={actualMemory.month} executionBlocked={!editing&&targetMonth!==nextMonth?`M${Math.min(nextMonth,12)}부터 순서대로 실행`:undefined} onRecommend={()=>{setPlan({...plan,cadence:{},units:recommendMix(3,Math.max(0,budgetFor(workingBusiness,plan,memory).availableBudget),workingBusiness,product,memory,plan)});setToast('현재 브랜드와 리소스에 맞는 믹스를 채웠어요. 자유롭게 바꿔보세요.');}} onBusiness={()=>setDialog('business')} onModel={()=>setDialog('model')} onProjection={()=>navigate('projection')}/></>}
+      {state.view==='projection'&&<><Projection entries={year.entries} business={state.business} product={product} memory={actualMemory} onExport={exportCSV} onModel={()=>setDialog('model')} onMix={()=>navigate('mix')} onEditMonth={selectPlanMonth}/>{stage===4&&config!.openStage>=4&&<section className="card reflection-card"><span className="eyebrow">REFLECT · TAKE IT TO YOUR BUSINESS</span><h2>오늘의 발견을, 다음 행동으로.</h2><label>가장 크게 달라진 생각은?<textarea maxLength={5000} value={state.reflection} onChange={e=>patch({reflection:e.target.value})} placeholder="숫자와 브랜드 인식의 변화에서 발견한 점을 기록하세요."/></label><label>다음 7일 안에 실행할 한 가지는?<textarea maxLength={5000} value={state.nextAction} onChange={e=>patch({nextAction:e.target.value})} placeholder="어떤 상품을, 어떤 미디어에서, 어떤 예산으로 실행할까요?"/></label><div className="reflection-actions"><button className="button secondary" onClick={()=>window.print()}>리포트 인쇄 / PDF</button><button className="button primary" onClick={exportAll}><ArrowDownToLine size={15}/>전체 기록 내보내기</button></div></section>}</>}
       {state.view==='business'&&<BusinessView business={state.business} products={state.products} productId={product?.id||''} onBusiness={()=>setDialog('business')} onProduct={openProduct} onSelect={selectProduct} onDelete={removeProduct} onUndoDelete={undoProductDelete} deletedProduct={state.deletedProduct?.product} sessions={state.businessSessions} onSwitch={switchBusiness} disabled={running}/>}
       <footer className="app-footer"><span><span className="status-dot"/>이 브라우저에 자동 저장돼요.</span><div><button onClick={()=>setDialog('history')}>진행 기록</button><span>·</span><button onClick={()=>setDialog('model')}>시뮬레이션 기준</button></div><span>SMALL STEPS. REAL LEARNING.</span></footer>
     </main>

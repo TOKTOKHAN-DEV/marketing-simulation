@@ -1,7 +1,8 @@
+import {DEFAULT_BUDGET_POLICY} from './funding.mjs';
 import {industryFor} from './model.mjs';
 const normalize=s=>s.normalize('NFKC').toLowerCase().replace(/주식회사|\(주\)|㈜|[\p{P}\p{Z}\s]/gu,'');
 export const businessKey=b=>b.catalogCompanyId?`catalog:${b.catalogCompanyId}`:`manual:${normalize(b.name)}`;
-const SESSION_FIELDS=['business','products','productId','plans','history','notes','reflection','nextAction','editingCampaignId','historyDrafts','revisionUndo','projectionHorizon','outlook','productsInitialized','deletedProduct'];
+const SESSION_FIELDS=['business','products','productId','plans','history','notes','reflection','nextAction','editingCampaignId','historyDrafts','revisionUndo','projectionHorizon','outlook','productsInitialized','deletedProduct','projectionScaleBudget','monthlyPlans','planningMonth'];
 const sessionOf=state=>Object.fromEntries(SESSION_FIELDS.filter(k=>state[k]!==undefined).map(k=>[k,structuredClone(state[k])]));
 const sectorProducts={
  commerce:[['대표 생활 상품','oneoff','핵심 고객의 일상 문제를 해결하는 대표 상품'],['실속 묶음 세트','oneoff','대표 상품을 함께 구성한 묶음 상품']],
@@ -30,7 +31,7 @@ export function starterProducts(business,catalogProducts=[],makeId=()=>crypto.ra
 export function saveBusinessState(state,incoming,templates=[],makeId=()=>crypto.randomUUID()){
  const same=state.business&&(businessKey(state.business)===businessKey(incoming)||(!state.business.catalogCompanyId&&normalize(state.business.name)===normalize(incoming.name)));
  if(same){
-  const business={...incoming,id:state.business.id};
+  const business={...incoming,id:state.business.id,budgetPolicy:incoming.budgetPolicy??state.business.budgetPolicy??{...DEFAULT_BUDGET_POLICY}};
   const refreshIndustry=state.business.industry!==business.industry&&!business.catalogCompanyId;
   let products=state.products;
   if(refreshIndustry&&products.some(p=>p.templateGenerated))products=[...starterProducts(business,templates,makeId),...products.filter(p=>!p.templateGenerated)].slice(0,50);
@@ -41,7 +42,7 @@ export function saveBusinessState(state,incoming,templates=[],makeId=()=>crypto.
  if(state.business)businessSessions[businessKey(state.business)]=sessionOf(state);
  const stored=businessSessions[businessKey(incoming)];
  delete businessSessions[businessKey(incoming)];
- const business=stored?{...incoming,id:stored.business.id}:{...incoming,id:makeId()};
+ const business=stored?{...incoming,id:stored.business.id,budgetPolicy:incoming.budgetPolicy??stored.business.budgetPolicy??{...DEFAULT_BUDGET_POLICY}}:{...incoming,id:makeId(),budgetPolicy:incoming.budgetPolicy??{...DEFAULT_BUDGET_POLICY}};
  const target=stored?{...structuredClone(stored),business}:{business,products:starterProducts(business,templates,makeId),productId:'',plans:{},history:[],notes:'',reflection:'',nextAction:'',productsInitialized:true};
  return{...state,...Object.fromEntries(SESSION_FIELDS.map(k=>[k,undefined])),...target,productId:target.products.some(p=>p.id===target.productId)?target.productId:target.products[0]?.id||'',businessSessions,view:'business',editingCampaignId:undefined};
 }
@@ -53,11 +54,12 @@ export function activateBusiness(state,key){
 export function deleteProduct(state,id){
  const index=state.products.findIndex(p=>p.id===id);if(index<0)return state;
  const products=state.products.filter(p=>p.id!==id),product=state.products[index];
- return{...state,products,productsInitialized:true,productId:state.productId===id?(products[Math.min(index,products.length-1)]?.id||''):state.productId,editingCampaignId:undefined,deletedProduct:{product:structuredClone(product),index,wasSelected:state.productId===id}};
+ const affected=Object.fromEntries(Object.entries(state.monthlyPlans||{}).filter(([month,slot])=>slot.productId===id&&Number(month)>(state.history.at(-1)?.metrics.month||0)));
+ return{...state,monthlyPlans:state.monthlyPlans?Object.fromEntries(Object.entries(state.monthlyPlans).filter(([month])=>!Object.hasOwn(affected,month))):undefined,products,productsInitialized:true,productId:state.productId===id?(products[Math.min(index,products.length-1)]?.id||''):state.productId,editingCampaignId:undefined,deletedProduct:{product:structuredClone(product),index,wasSelected:state.productId===id,monthlyPlans:affected}};
 }
 export function restoreProduct(state){
  const deleted=state.deletedProduct;if(!deleted||state.products.length>=50)return state;
  if(state.products.some(p=>p.id===deleted.product.id))return{...state,deletedProduct:undefined};
  const products=[...state.products];products.splice(deleted.index,0,deleted.product);
- return{...state,products,productId:deleted.wasSelected?deleted.product.id:state.productId,deletedProduct:undefined};
+ return{...state,monthlyPlans:{...deleted.monthlyPlans,...state.monthlyPlans},products,productId:deleted.wasSelected?deleted.product.id:state.productId,deletedProduct:undefined};
 }

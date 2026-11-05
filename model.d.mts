@@ -1,3 +1,4 @@
+export {budgetFor} from './funding.mjs';
 import type { Industry,Channel,Plan,Memory,CampaignInput,Metrics,Product,ServiceQueue,Business,MarketingTeam,ChannelResult,AdCampaign,OutlookMonth } from './src/types';
 export const INDUSTRIES:Industry[];
 export const CHANNELS:Channel[];
@@ -21,8 +22,8 @@ export function planSummary(input:{business:Business;product:Product;plan:Plan;m
 export function spendFor(plan:Plan):number;
 export function validateCampaign(input:CampaignInput):string|null;
 export function brandDescription(memory:Memory):{title:string;recognition:string;trust:string;advocacy:string};
-export function project(input:CampaignInput,horizon?:number):Metrics[];
-export function projectMonthly(input:CampaignInput,plans:Plan[]):Metrics[];
+export function project(input:CampaignInput,horizon?:number,options?:{scalePaid?:boolean}):Metrics[];
+export function projectMonthly(input:CampaignInput,plans:Plan[],options?:{scalePaid?:boolean}):Metrics[];
 export function outlookPlans(plan:Plan,outlook:OutlookMonth[]):Plan[];
 export function recommendMix(stage:number,budget:number,business?:Business|null,product?:Product,memory?:Memory,basePlan?:Plan):Record<string,number>;
 export function calculateSales(product:Product,memory:Memory,demandOrders:number,marketingShare:number,performanceShare?:number,commissionRate?:number):Partial<Metrics>&{newOrders:number;repeatOrders:number;orders:number;revenue:number;attributedRevenue:number;organicRevenue:number;performanceRevenue:number;nextProductCustomers:number;queueAfter:ServiceQueue|null};
