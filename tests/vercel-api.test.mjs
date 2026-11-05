@@ -1,0 +1,13 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import session from '../api/session.mjs';import simulate from '../api/simulate.mjs';import {initialMemory,initialPlan} from '../model.mjs';
+const response=()=>({headers:{},statusCode:0,body:null,setHeader(k,v){this.headers[k]=v;return this;},status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;}});
+function withEnv(run){const keys=['OPEN_STAGE','WORKSHOP_ID'],old=Object.fromEntries(keys.map(k=>[k,process.env[k]]));process.env.OPEN_STAGE='4';process.env.WORKSHOP_ID='api-test';try{return run();}finally{for(const k of keys)if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}}
+const input=()=>({stage:1,round:1,workshopId:'api-test',business:{id:'b',name:'배포 API',industry:'commerce',market:'B2C',audience:''},product:{id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''},plan:{...initialPlan(),units:{display:10},campaigns:{display:{format:'image',refreshMonths:3}}},memory:initialMemory()});
+test('Vercel session uses runtime environment and prevents cached stage settings',()=>withEnv(()=>{const res=response();session({method:'GET'},res);assert.equal(res.statusCode,200);assert.equal(res.body.openStage,4);assert.equal(res.body.workshopId,'api-test');assert.equal(res.headers['Cache-Control'],'no-store');}));
+test('Vercel simulation applies the shared stage gates and carries creative fatigue',()=>withEnv(()=>{const body=input(),res=response();simulate({method:'POST',body},res);assert.equal(res.statusCode,200);assert.equal(res.body.stage,1);assert.equal(res.body.metrics.creativeWorkHours,6);const next=response();simulate({method:'POST',body:{...body,round:2,memory:res.body.memoryAfter}},next);assert.equal(next.statusCode,200);assert.equal(next.body.metrics.channels[0].creativeAge,1);assert.equal(next.body.metrics.channels[0].conversionMultiplier,.88);assert.equal(next.body.metrics.creativeWorkHours,0);assert.equal(next.headers['Cache-Control'],'no-store');}));
+test('Vercel API rejects wrong methods, stale workshops, invalid JSON and oversized payloads',()=>withEnv(()=>{
+ for(const [handler,req]of [[session,{method:'POST'}],[simulate,{method:'GET'}]]){const res=response();handler(req,res);assert.equal(res.statusCode,405);assert.ok(res.headers.Allow);}
+ const stale=response();simulate({method:'POST',body:{...input(),workshopId:'old'}},stale);assert.equal(stale.statusCode,409);
+ const malformed=response();simulate({method:'POST',body:'{'},malformed);assert.equal(malformed.statusCode,400);
+ const large=response();simulate({method:'POST',body:{...input(),extra:'a'.repeat(130*1024)}},large);assert.equal(large.statusCode,413);
+}));

@@ -1,0 +1,9 @@
+.git
+node_modules
+dist
+artifacts
+tests
+.env*
+applications-*.csv
+*.tsbuildinfo
+.DS_Store
