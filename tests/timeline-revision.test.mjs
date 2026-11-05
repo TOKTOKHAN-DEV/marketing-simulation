@@ -40,7 +40,7 @@ test('a changed creative schedule can invalidate a later workload; the server ne
 });
 test('subscription renewals and passive service delivery are recalculated across products',()=>{
  const sub={...product,id:'sub',price:40000,purchaseType:'subscription',churnRate:5};const service={...product,id:'si',price:1000000,purchaseType:'service',hoursPerOrder:320,monthlyHours:160};
- let memory={...initialMemory(),productCustomers:{sub:10},customers:10,serviceQueues:{si:{pendingOrders:1,progressHours:0,marketingShare:1,performanceShare:0}}};
+ let memory={...initialMemory(),awareness:30,trust:40,organicAssets:10,productCustomers:{sub:10},customers:10,serviceQueues:{si:{pendingOrders:1,progressHours:0,marketingShare:1,performanceShare:0}}};
  const history=Array.from({length:3},(_,i)=>{const r=simulate({business,product:sub,products:[sub,service],plan:plan({owned:5}),memory,stage:1,round:i+1});memory=r.memoryAfter;return r;});
  const result=previewRevision(history,{[history[0].id]:plan({owned:15})});assert.equal(result.error,null);
  assert.ok(result.history[2].metrics.activeSubscribers>history[2].metrics.activeSubscribers);assert.equal(result.history[1].metrics.backgroundRevenue,1000000);assert.equal(result.history[1].memoryAfter.serviceQueues.si.pendingOrders,0);

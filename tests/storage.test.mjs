@@ -21,7 +21,7 @@ test('monthly publishing, marketer allocation, seeding terms and cumulative publ
  const result=simulate({business:b,product:p,plan,memory:initialMemory(),stage:2,round:1});
  const state={...newState(),projectionHorizon:6,business:b,products:[p],productId:'p',plans:{'p:2':plan},outlook:{'p:1':[{owned:10,adPercent:100},{owned:4,adPercent:0}]},history:[result]};assert.equal(validState(state),true);
  const original=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
- try{const restored=loadGame('test');assert.equal(restored.business.marketingTeam.performance,'expert');assert.equal(restored.plans['p:2'].cadence.owned,'once');assert.deepEqual(restored.outlook,state.outlook);assert.equal(restored.projectionHorizon,6);assert.equal(restored.history[0].memoryAfter.contentPublished.p.owned,10);assert.equal(restored.history[0].metrics.expectedPlacements,.8);}finally{globalThis.localStorage=original;}
+ try{const restored=loadGame('test');assert.equal(restored.business.marketingTeam.performance,'expert');assert.equal(restored.plans['p:2'].cadence.owned,'once');assert.deepEqual(restored.outlook,state.outlook);assert.equal(restored.projectionHorizon,6);assert.equal(restored.history[0].memoryAfter.contentPublished.p.owned,10);assert.equal(restored.history[0].metrics.expectedPlacements,0);}finally{globalThis.localStorage=original;}
  for(const patch of [{marketingTeam:{...b.marketingTeam,headcount:-1}},{marketingTeam:{...b.marketingTeam,performance:'fake'}}])assert.equal(validState({...state,business:{...b,...patch}}),false);
  assert.equal(validState({...state,plans:{bad:{...plan,cadence:{owned:'daily'}}}}),false);
  assert.equal(validState({...state,outlook:{bad:[{owned:10,adPercent:101}]}}),false);
@@ -65,4 +65,17 @@ test('historical month drafts, selection and one-level undo survive a browser re
  const revised=previewRevision(state.history,state.historyDrafts);const applied={...state,history:revised.history,historyDrafts:{},revisionUndo:{history:state.history,revisedAt:new Date().toISOString()}};
  assert.equal(validState(applied),true);assert.equal(applied.revisionUndo.history[0].plan.units.owned,4);assert.equal(applied.history[0].plan.units.owned,8);
  assert.equal(validState({...state,editingCampaignId:'missing'}),false);assert.equal(validState({...state,historyDrafts:{missing:first.plan}}),false);
+});
+
+test('product consideration, repurchase flags and accumulated strategy pressure survive reload; malformed new fields fail safely',async()=>{
+ const {simulate}=await import('../simulation.mjs');const {initialMemory}=await import('../model.mjs');
+ const business={id:'b',name:'전략 저장',industry:'commerce',market:'B2C',audience:''};
+ const product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:'',involvement:'high',repurchasePossible:true};
+ const plan={budget:3000000,units:{display:30},hypothesis:''};
+ const record=simulate({business,product,plan,memory:initialMemory(),stage:1,round:1});
+ const state={...newState(),business,products:[product],productId:'p',history:[record]};assert.equal(validState(state),true);
+ const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
+ try{const restored=loadGame('growth');assert.equal(restored.products[0].involvement,'high');assert.equal(restored.products[0].repurchasePossible,true);assert.ok(restored.history[0].memoryAfter.strategyStates.p.adPressure>0);}finally{globalThis.localStorage=old;}
+ assert.equal(validState({...state,products:[{...product,involvement:'bogus'}]}),false);assert.equal(validState({...state,products:[{...product,repurchasePossible:'yes'}]}),false);
+ const bad=structuredClone(state);bad.history[0].memoryAfter.strategyStates.p.adPressure=2;assert.equal(validState(bad),false);
 });

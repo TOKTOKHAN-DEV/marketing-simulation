@@ -13,6 +13,8 @@ export function industryFor(id:string):Industry;
 export const TEAM_LEVELS:Record<MarketingTeam['performance'],{label:string;speed:number;quality:number}>;
 export function teamFor(business?:Business|null):MarketingTeam;
 export function seedingFor(plan:Plan):{mode:'gift'|'paid'|'referral';fee:number;commission:number};
+export function productProfile(product:Product,referencePrice?:number):{involvement:'low'|'high';high:boolean;repurchasable:boolean};
+export function seedingEligibility(product:Product,memory:Memory,referencePrice?:number):{eligible:boolean;awareness:number;trust:number};
 export function seedingRate(mode:string):number;
 export function costFor(channel:Channel,plan:Plan):number;
 export function planSummary(input:{business:Business;product:Product;plan:Plan;memory:Memory}):{channels:(Channel&ChannelResult&{ad?:{creativeHours:number;creativeAge:number;creativeRefreshed:boolean;effectiveCpc:number;conversionMultiplier:number;settings:Required<AdCampaign>}})[];baseSpend:number;workHours:number;teamCapacity:number;ownedPublished:number;creativeWorkHours:number;creativeRefreshes:number;quality:number;team:MarketingTeam;seeding:ReturnType<typeof seedingFor>};
@@ -22,5 +24,5 @@ export function brandDescription(memory:Memory):{title:string;recognition:string
 export function project(input:CampaignInput,horizon?:number):Metrics[];
 export function projectMonthly(input:CampaignInput,plans:Plan[]):Metrics[];
 export function outlookPlans(plan:Plan,outlook:OutlookMonth[]):Plan[];
-export function recommendMix(stage:number,budget:number,business?:Business|null,product?:Product,memory?:Memory):Record<string,number>;
+export function recommendMix(stage:number,budget:number,business?:Business|null,product?:Product,memory?:Memory,basePlan?:Plan):Record<string,number>;
 export function calculateSales(product:Product,memory:Memory,demandOrders:number,marketingShare:number,performanceShare?:number,commissionRate?:number):Partial<Metrics>&{newOrders:number;repeatOrders:number;orders:number;revenue:number;attributedRevenue:number;organicRevenue:number;performanceRevenue:number;nextProductCustomers:number;queueAfter:ServiceQueue|null};

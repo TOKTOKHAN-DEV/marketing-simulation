@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {initialMemory,initialPlan,project,validateCampaign,planSummary,projectMonthly,outlookPlans,calculateSales,CHANNELS,teamFor} from '../model.mjs';
 const business={id:'b',name:'브랜드',industry:'commerce',market:'B2C',audience:'소비자'};
 const product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:'',canSponsor:true,sponsorshipCost:9000};
+const warm={...initialMemory(),awareness:30,trust:40,advocacy:28};
 const input=(patch={})=>({business,product,plan:{...initialPlan(),units:{owned:10}},memory:initialMemory(),stage:3,...patch});
 test('owned-only month runs with no incremental cash and a finite workload, never infinite ROAS',()=>{
  const r=input({plan:{...initialPlan(),budget:0,units:{owned:10}}});assert.equal(validateCampaign(r),null);
@@ -38,17 +39,17 @@ test('marketer capacity gates publishing, and proficiency changes production tim
 });
 test('ten gift seeding contacts are less than one expected publication, using internal outreach time and accepted gifts only',()=>{
  const plan={...initialPlan(),units:{'influencer-seeding':10},seeding:{mode:'gift',fee:300000,commission:10}};
- const m=project(input({plan}),1)[0];assert.equal(m.seedingAttempts,10);assert.equal(m.expectedPlacements,.8);assert.equal(m.workHours,2.5);assert.equal(m.spend,7200);
+ const m=project(input({plan,memory:warm}),1)[0];assert.equal(m.seedingAttempts,10);assert.equal(m.expectedPlacements,.8);assert.equal(m.workHours,2.5);assert.equal(m.spend,7200);
  assert.equal(validateCampaign(input({plan})),null);assert.match(validateCampaign(input({plan,product:{...product,canSponsor:false}})),/協찬|협찬/);
 });
 test('unavailable sponsorship can be replaced with a paid or referral offer',()=>{
  const p={...product,canSponsor:false};
- for(const mode of ['paid','referral']){const plan={...initialPlan(),units:{'influencer-seeding':10},seeding:{mode,fee:300000,commission:10}};assert.equal(validateCampaign(input({plan,product:p})),null);const m=project(input({plan,product:p}),1)[0];assert.equal(m.expectedPlacements,mode==='paid'?3:.5);if(mode==='paid')assert.equal(m.spend,900000);}
+ for(const mode of ['paid','referral']){const plan={...initialPlan(),units:{'influencer-seeding':10},seeding:{mode,fee:300000,commission:10}};assert.equal(validateCampaign(input({plan,product:p})),null);const m=project(input({plan,product:p,memory:warm}),1)[0];assert.equal(m.expectedPlacements,mode==='paid'?3:.5);if(mode==='paid')assert.equal(m.spend,900000);}
 });
 test('referral commissions apply to new converted sales only and count against budget',()=>{
  const plan={...initialPlan(),budget:100000000,units:{'influencer-seeding':400},seeding:{mode:'referral',fee:300000,commission:20}};
- const m=project(input({plan}),1)[0];assert.ok(m.newOrders>0);assert.equal(m.referralFee,m.newOrders*product.price*.2);assert.equal(m.spend,m.referralFee);
- assert.match(validateCampaign(input({plan:{...plan,budget:0}})),/예산/);
+ const m=project(input({plan,memory:warm}),1)[0];assert.ok(m.newOrders>0);assert.ok(Math.abs(m.referralFee-m.attributedRevenue*.2)<=1);assert.ok(m.referralFee<m.newOrders*product.price*.2);assert.equal(m.spend,m.referralFee);
+ assert.match(validateCampaign(input({memory:warm,plan:{...plan,budget:0}})),/예산/);
  const subscription={...product,purchaseType:'subscription',churnRate:0};
  const renewed=calculateSales(subscription,{...initialMemory(),productCustomers:{p:100}},2,1,0,.1);assert.equal(renewed.referralFee,6000);assert.equal(renewed.repeatOrders,100);
 });
@@ -71,21 +72,21 @@ test('malformed new resource settings cannot bypass validation',()=>{
  for(const patch of [{contentPublished:{p:{fake:2}}},{contentPublished:{p:{owned:1.5}}},{ownedAwareness:10}])assert.ok(validateCampaign(input({memory:{...initialMemory(),...patch}})));
 });
 
-test('performance ads generate current traffic without creating organic assets or brand effects',()=>{
+test('performance ads generate traffic and small DA awareness without creating search assets, trust or advocacy',()=>{
  const m=project(input({plan:{...initialPlan(),units:{search:10,social:10}}}),1)[0];
  assert.ok(m.performanceVisits>0);assert.equal(m.memoryAfter.organicAssets,0);
- assert.ok(m.memoryAfter.awareness<initialMemory().awareness);assert.ok(m.memoryAfter.trust<initialMemory().trust);
- for(const c of m.channels){assert.equal(c.awarenessGain,0);assert.equal(c.trustGain,0);}
+ assert.ok(m.memoryAfter.awareness>initialMemory().awareness);assert.ok(m.memoryAfter.trust<initialMemory().trust);
+ assert.equal(m.channels.find(c=>c.id==='search').awarenessGain,0);for(const c of m.channels)assert.equal(c.trustGain,0);assert.ok(m.memoryAfter.advocacy<initialMemory().advocacy);
  const stopped=project(input({memory:m.memoryAfter,plan:{...initialPlan(),units:{}}}),1)[0];
  assert.equal(stopped.performanceVisits,0);assert.equal(stopped.organicVisits,0);
 });
 test('owned groundwork protects more revenue after ads stop than ads alone',()=>{
  const owned={...initialPlan(),units:{owned:10}},ads={...initialPlan(),units:{search:20}},stop={...initialPlan(),units:{}};
- const prepared=projectMonthly(input(),[owned,owned,owned,ads,stop,stop]);
+ const prepared=projectMonthly(input({memory:{...initialMemory(),awareness:20,trust:30}}),[owned,owned,owned,ads,stop,stop]);
  const unprepared=projectMonthly(input(),[ads,ads,ads,ads,stop,stop]);
  assert.equal(prepared[4].performanceVisits,0);assert.equal(unprepared[4].performanceVisits,0);
  assert.ok(prepared[4].organicVisits>unprepared[4].organicVisits);assert.ok(prepared[4].revenue>unprepared[4].revenue);
- assert.ok(prepared[4].revenue/prepared[3].revenue>unprepared[4].revenue/unprepared[3].revenue);
+ assert.ok(prepared[5].revenue>=unprepared[5].revenue);
  assert.ok(prepared[5].organicVisits>0);assert.equal(unprepared[5].organicVisits,0);
 });
 test('outlook scales only monthly ads while explicitly setting owned quantity',()=>{

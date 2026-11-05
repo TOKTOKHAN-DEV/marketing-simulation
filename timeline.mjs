@@ -18,7 +18,7 @@ export function replayRecords(records,memoryBefore) {
 }
 
 const businessFields=['id','name','industry','market','audience','marketingTeam'];
-const productFields=['id','businessId','name','price','purchaseType','value','hoursPerOrder','monthlyHours','churnRate','canSponsor','sponsorshipCost'];
+const productFields=['id','businessId','name','price','purchaseType','value','hoursPerOrder','monthlyHours','churnRate','canSponsor','sponsorshipCost','involvement','repurchasePossible'];
 const pick=(object,fields)=>Object.fromEntries(fields.filter(key=>object[key]!==undefined).map(key=>[key,object[key]]));
 // Legacy once-only plans stored requested totals, not that month's executed quantity.
 export function planForRecord(record) {
