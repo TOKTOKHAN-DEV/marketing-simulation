@@ -15,8 +15,8 @@ test('runtime config refreshes stage and workshop without restart',()=>{
 });
 test('valid campaign accepted',()=>assert.equal(validateRequest(request(),config),null));
 test('server blocks closed stage and waiting room',()=>{assert.equal(validateRequest(request({stage:2}),config).status,403);assert.equal(validateRequest(request(),{...config,openStage:0}).status,403);});
-test('server rejects stale workshop and invalid rounds',()=>{assert.equal(validateRequest(request({workshopId:'old'}),config).status,409);for(const round of [0,4,1.5,'1'])assert.equal(validateRequest(request({round}),config).status,400);});
-test('late-stage media cannot bypass the gate inside an earlier-stage campaign',()=>{for(const id of ['micro','expert','search','social'])assert.equal(validateRequest(request({plan:{...initialPlan(),units:{[id]:1}}}),config).status,400);});
+test('server rejects stale workshop and invalid rounds',()=>{assert.equal(validateRequest(request({workshopId:'old'}),config).status,409);for(const round of [0,1.5,'1',NaN])assert.equal(validateRequest(request({round}),config).status,400);});
+test('all campaign media are available from the first simulation month regardless of lesson topic',()=>{for(const id of ['micro','expert','search','display','social','influencer-seeding'])assert.equal(validateRequest(request({plan:{...initialPlan(),units:{[id]:1}}}),config),null,id);});
 test('all media become available in their intended stage',()=>{for(const c of CHANNELS){const r=request({stage:c.stage,plan:{...initialPlan(),budget:100000000,units:{[c.id]:1}}});assert.equal(validateRequest(r,{...config,openStage:3}),null,c.id);}});
 test('overspending is rejected, while unallocated money is not spent',()=>{assert.equal(validateRequest(request({plan:{...initialPlan(),budget:100000,units:{power:1}}}),config).status,400);const m=simulate(request()).metrics;assert.equal(m.spend,1300000);assert.equal(m.unallocated,1700000);});
 test('invalid media quantities, ids, budgets and hypotheses are rejected',()=>{
@@ -49,8 +49,25 @@ test('opened media can be mixed while recording an earlier learning stage',()=>{
  assert.equal(validateRequest(r,{...config,openStage:4}),null);
  const result=simulate(r);assert.equal(result.stage,1);assert.ok(result.metrics.channels.some(c=>c.id==='search'));
 });
-test('client supplied media availability cannot override instructor configuration',()=>{
+test('lesson opening and waiting room are separate from unrestricted media selection',()=>{
  const r=request({stage:1,availableStage:4,plan:{...initialPlan(),units:{search:1}}});
- assert.equal(validateRequest(r,{...config,openStage:1}).status,400);
- assert.equal(validateRequest(r,{...config,openStage:4}),null);
+ assert.equal(validateRequest(r,{...config,openStage:1}),null);
+ assert.equal(validateRequest(r,{...config,openStage:0}).status,403);
+ assert.equal(validateRequest({...r,stage:4},{...config,openStage:1}).status,403);
+ assert.equal(validateRequest({...r,stage:4},{...config,openStage:4}),null);
+});
+
+test('one continuous timeline can exceed twelve months under the same lesson',()=>{
+ let memory=initialMemory();const months=[];
+ for(let month=1;month<=15;month++){
+  const r=request({stage:1,round:month,memory,plan:{...initialPlan(),units:{owned:2,search:1,micro:1}}});
+  assert.equal(validateRequest(r,config),null);const result=simulate(r);assert.equal(result.round,month);months.push(result.metrics.month);memory=result.memoryAfter;
+ }
+ assert.deepEqual(months,Array.from({length:15},(_,i)=>i+1));assert.ok(memory.organicAssets>0);
+});
+test('review topic can record another month and stale month numbers cannot reset the timeline',()=>{
+ const first=simulate(request());const next=request({stage:4,round:2,memory:first.memoryAfter});
+ assert.equal(validateRequest(next,{...config,openStage:4}),null);const result=simulate(next);assert.equal(result.metrics.month,2);assert.equal(result.stage,4);
+ assert.equal(validateRequest({...next,round:1},{...config,openStage:4}).status,400);
+ assert.equal(validateRequest({...next,round:3},{...config,openStage:4}).status,400);
 });

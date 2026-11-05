@@ -71,7 +71,7 @@ const rounded=n=>Math.round(n*100)/100;
 const validText=(v,max=200)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const finiteIn=(n,min,max)=>Number.isFinite(n)&&n>=min&&n<=max;
 
-export function validateCampaign({business:b,product:p,products,plan,memory:m,stage,availableStage=stage}) {
+export function validateCampaign({business:b,product:p,products,plan,memory:m,stage}) {
   if(!b||!validText(b.id,100)||!validText(b.name,60)||!INDUSTRIES.some(i=>i.id===b.industry)||!['B2C','B2B','B2B2C','B2G'].includes(b.market)||typeof b.audience!=='string'||b.audience.length>200)return '비즈니스 정보를 확인해주세요.';
   const validProduct=item=>item&&validText(item.id,100)&&item.businessId===b.id&&validText(item.name,100)&&Number.isInteger(item.price)&&finiteIn(item.price,1000,100000000)&&['oneoff','repeat','service','subscription'].includes(item.purchaseType)&&typeof item.value==='string'&&item.value.length<=300
     &&(item.purchaseType!=='service'||(finiteIn(item.hoursPerOrder,.25,100000)&&finiteIn(item.monthlyHours,0,1000000)))&&(item.churnRate===undefined||finiteIn(item.churnRate,0,100))&&(item.canSponsor===undefined||typeof item.canSponsor==='boolean')&&(item.sponsorshipCost===undefined||(Number.isInteger(item.sponsorshipCost)&&finiteIn(item.sponsorshipCost,0,100000000)));
@@ -81,9 +81,8 @@ export function validateCampaign({business:b,product:p,products,plan,memory:m,st
   for(const[id,units]of Object.entries(plan.units)) {
     const c=CHANNELS.find(c=>c.id===id);
     if(!c||!Number.isInteger(units)||units<0||units>2000)return '올바른 미디어 수량을 입력해주세요.';
-    if(units>0&&c.stage>availableStage)return '아직 열리지 않은 미디어가 포함되어 있어요.';
   }
-  if(!m||!['awareness','trust','advocacy'].every(k=>finiteIn(m[k],0,100))||!Number.isInteger(m.month)||!finiteIn(m.month,0,1000)||!finiteIn(m.organicAssets,0,100000)||!finiteIn(m.customers,0,1e9)||!m.productCustomers||typeof m.productCustomers!=='object'||Array.isArray(m.productCustomers)||Object.keys(m.productCustomers).length>100||!Object.values(m.productCustomers).every(n=>Number.isInteger(n)&&finiteIn(n,0,1e9)))return '누적 브랜드 데이터를 확인해주세요.';
+  if(!m||!['awareness','trust','advocacy'].every(k=>finiteIn(m[k],0,100))||!Number.isInteger(m.month)||!finiteIn(m.month,0,999999)||!finiteIn(m.organicAssets,0,100000)||!finiteIn(m.customers,0,1e9)||!m.productCustomers||typeof m.productCustomers!=='object'||Array.isArray(m.productCustomers)||Object.keys(m.productCustomers).length>100||!Object.values(m.productCustomers).every(n=>Number.isInteger(n)&&finiteIn(n,0,1e9)))return '누적 브랜드 데이터를 확인해주세요.';
   if(m.serviceQueues!==undefined&&(!m.serviceQueues||typeof m.serviceQueues!=='object'||Array.isArray(m.serviceQueues)||Object.keys(m.serviceQueues).length>100||!Object.values(m.serviceQueues).every(q=>q&&Number.isInteger(q.pendingOrders)&&finiteIn(q.pendingOrders,0,1e9)&&finiteIn(q.progressHours,0,100000)&&finiteIn(q.marketingShare,0,1)&&finiteIn(q.performanceShare,0,1)&&q.performanceShare<=q.marketingShare&&(q.commissionRate===undefined||finiteIn(q.commissionRate,0,.5)))))return '이월 서비스 작업 데이터를 확인해주세요.';
   if(m.ownedAwareness!==undefined&&(!finiteIn(m.ownedAwareness,0,100)||m.ownedAwareness>m.awareness+.01))return '온드 인지도 데이터를 확인해주세요.';
   if(m.contentPublished!==undefined&&(!m.contentPublished||Array.isArray(m.contentPublished)||typeof m.contentPublished!=='object'||Object.keys(m.contentPublished).length>100||Object.values(m.contentPublished).some(row=>!row||Array.isArray(row)||typeof row!=='object'||Object.entries(row).some(([id,n])=>!CHANNELS.some(c=>c.id===id)||!Number.isInteger(n)||!finiteIn(n,0,10000000)))))return '누적 발행 데이터를 확인해주세요.';

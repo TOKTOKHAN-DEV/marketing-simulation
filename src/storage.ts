@@ -14,10 +14,10 @@ const publication=(v:unknown)=>record(v)&&Object.values(v).every(row=>record(row
 const plan=(v:unknown)=>record(v)&&finite(v.budget)&&text(v.hypothesis)&&(v.campaigns===undefined||campaigns(v.campaigns))&&record(v.units)&&Object.entries(v.units).every(([id,n])=>CHANNELS.some(c=>c.id===id)&&finite(n)&&Number.isInteger(n))&&(v.cadence===undefined||(record(v.cadence)&&Object.entries(v.cadence).every(([id,c])=>CHANNELS.some(k=>k.id===id&&k.group!=='performance')&&['monthly','once'].includes(String(c)))))&&(v.rates===undefined||(record(v.rates)&&Object.entries(v.rates).every(([id,n])=>{const c=CHANNELS.find(c=>c.id===id);return !!c?.minCost&&finite(n)&&Number(n)>=c.minCost&&Number(n)<=c.maxCost!;})))&&(v.seeding===undefined||(record(v.seeding)&&['gift','paid','referral'].includes(String(v.seeding.mode))&&finite(v.seeding.fee)&&finite(v.seeding.commission)&&Number(v.seeding.commission)<=50));
 const metrics=(v:unknown)=>record(v)&&['month','budget','spend','marketingVisits','organicVisits','referralVisits','visits','leadRate','leads','retentionRate','retained','closeRate','newOrders','repeatOrders','orders','revenue','attributedRevenue','organicRevenue','priceLeadMultiplier','priceCloseMultiplier'].every(k=>finite(v[k]))&&finite(v.unallocated)&&['roas','mer','performanceRoas','cpa','cpc'].every(k=>v[k]===null||finite(v[k]))&&text(v.narrative)&&memory(v.memoryAfter)&&(v.productSales===undefined||(Array.isArray(v.productSales)&&v.productSales.every(p=>record(p)&&text(p.productId)&&text(p.name)&&finite(p.revenue)&&finite(p.newOrders)&&finite(p.mrr)&&['oneoff','repeat','service','subscription'].includes(p.salesModel as string))))&&Array.isArray(v.channels)&&v.channels.every(c=>record(c)&&text(c.id)&&text(c.name)&&finite(c.spend)&&finite(c.units));
 export function validState(v:unknown):v is GameState {
-  if(!record(v)||v.version!==2||!(v.business===null||business(v.business))||!Array.isArray(v.products)||v.products.length>50||!v.products.every(product)||!text(v.productId)||!record(v.plans)||!Object.values(v.plans).every(plan)||!Array.isArray(v.history)||v.history.length>9||!['dashboard','mix','projection','business'].includes(v.view as string)||!Number.isInteger(v.stage)||Number(v.stage)<1||Number(v.stage)>4||!['notes','reflection','nextAction'].every(k=>text(v[k])))return false;
+  if(!record(v)||v.version!==2||!(v.business===null||business(v.business))||!Array.isArray(v.products)||v.products.length>50||!v.products.every(product)||!text(v.productId)||!record(v.plans)||!Object.values(v.plans).every(plan)||!Array.isArray(v.history)||!['dashboard','mix','projection','business'].includes(v.view as string)||!Number.isInteger(v.stage)||Number(v.stage)<1||Number(v.stage)>4||!['notes','reflection','nextAction'].every(k=>text(v[k])))return false;
   if(v.projectionHorizon!==undefined&&v.projectionHorizon!==3&&v.projectionHorizon!==6)return false;
   if(v.outlook!==undefined&&(!record(v.outlook)||Object.values(v.outlook).some(rows=>!Array.isArray(rows)||rows.length>6||!rows.every(row=>record(row)&&Number.isInteger(row.owned)&&finite(row.owned)&&Number(row.owned)<=2000&&finite(row.adPercent)&&[0,25,50,75,100].includes(Number(row.adPercent))&&(row.creativeAction===undefined||['auto','refresh','reuse'].includes(String(row.creativeAction)))))))return false;
-  return v.history.every(r=>record(r)&&text(r.id)&&business(r.businessSnapshot)&&product(r.productSnapshot)&&plan(r.plan)&&Number.isInteger(r.stage)&&Number(r.stage)>=1&&Number(r.stage)<=3&&memory(r.memoryBefore)&&memory(r.memoryAfter)&&metrics(r.metrics)&&Array.isArray(r.forecast)&&r.forecast.every(metrics));
+  return v.history.every(r=>record(r)&&text(r.id)&&business(r.businessSnapshot)&&product(r.productSnapshot)&&plan(r.plan)&&Number.isInteger(r.stage)&&Number(r.stage)>=1&&Number(r.stage)<=4&&memory(r.memoryBefore)&&memory(r.memoryAfter)&&metrics(r.metrics)&&Array.isArray(r.forecast)&&r.forecast.every(metrics));
 }
 
 function industryFromLegacy(label:string) {
@@ -46,9 +46,19 @@ export function migrateLegacy(raw:unknown):GameState {
   }
   return state;
 }
+export function migrateMonthlyDrafts(state:GameState):GameState {
+  const plans={...state.plans};
+  for(const product of state.products){
+    const key=`${product.id}:monthly`;
+    if(plans[key])continue;
+    const legacy=plans[`${product.id}:${Math.min(state.stage,3)}`]||[3,2,1].map(stage=>plans[`${product.id}:${stage}`]).find(Boolean);
+    if(legacy)plans[key]=structuredClone(legacy);
+  }
+  return{...state,plans};
+}
 export function loadGame(workshopId:string):GameState {
   const current=localStorage.getItem(`marketing-quest:v2:${workshopId}`);
-  if(current){const state:unknown=JSON.parse(current);if(!validState(state))throw new Error('저장된 기록의 형식을 확인할 수 없어요. 원본은 보존되어 있습니다.');return state;}
+  if(current){const state:unknown=JSON.parse(current);if(!validState(state))throw new Error('저장된 기록의 형식을 확인할 수 없어요. 원본은 보존되어 있습니다.');return migrateMonthlyDrafts(state);}
   const previous=localStorage.getItem(`marketing-quest:v1:${workshopId}`);
   return previous?migrateLegacy(JSON.parse(previous)):newState();
 }
