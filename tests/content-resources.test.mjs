@@ -39,12 +39,19 @@ test('marketer capacity gates publishing, and proficiency changes production tim
 });
 test('ten gift seeding contacts are less than one expected publication, using internal outreach time and accepted gifts only',()=>{
  const plan={...initialPlan(),units:{'influencer-seeding':10},seeding:{mode:'gift',fee:300000,commission:10}};
- const m=project(input({plan,memory:warm}),1)[0];assert.equal(m.seedingAttempts,10);assert.equal(m.expectedPlacements,.8);assert.equal(m.workHours,2.5);assert.equal(m.spend,7200);
+ const m=project(input({plan,memory:warm}),1)[0];assert.equal(m.seedingAttempts,10);assert.equal(m.expectedPlacements,.1);assert.equal(m.workHours,2.5);assert.equal(m.spend,900);
  assert.equal(validateCampaign(input({plan})),null);assert.match(validateCampaign(input({plan,product:{...product,canSponsor:false}})),/協찬|협찬/);
 });
 test('unavailable sponsorship can be replaced with a paid or referral offer',()=>{
  const p={...product,canSponsor:false};
- for(const mode of ['paid','referral']){const plan={...initialPlan(),units:{'influencer-seeding':10},seeding:{mode,fee:300000,commission:10}};assert.equal(validateCampaign(input({plan,product:p})),null);const m=project(input({plan,product:p,memory:warm}),1)[0];assert.equal(m.expectedPlacements,mode==='paid'?3:.5);if(mode==='paid')assert.equal(m.spend,900000);}
+ for(const mode of ['paid','referral']){const plan={...initialPlan(),units:{'influencer-seeding':10},seeding:{mode,fee:300000,commission:10}};assert.equal(validateCampaign(input({plan,product:p})),null);const m=project(input({plan,product:p,memory:warm}),1)[0];assert.equal(m.expectedPlacements,mode==='paid'?1:.1);if(mode==='paid')assert.equal(m.spend,300000);}
+});
+test('a hundred eligible contacts yield one gift, ten paid or one referral placement at the new rates',()=>{
+ for(const [mode,placements] of [['gift',1],['paid',10],['referral',1]]){
+  const plan={...initialPlan(),units:{'influencer-seeding':100},seeding:{mode,fee:300000,commission:10}},m=project(input({plan,memory:warm}),1)[0];
+  assert.equal(validateCampaign(input({plan,memory:warm})),null);assert.equal(m.expectedPlacements,placements);assert.equal(m.seedingAttempts,100);assert.equal(m.workHours,25);
+  if(mode==='gift')assert.equal(m.spend,9000);if(mode==='paid')assert.equal(m.spend,3000000);
+ }
 });
 test('referral commissions apply to new converted sales only and count against budget',()=>{
  const plan={...initialPlan(),budget:100000000,units:{'influencer-seeding':400},seeding:{mode:'referral',fee:300000,commission:20}};
@@ -92,7 +99,7 @@ test('owned groundwork protects more revenue after ads stop than ads alone',()=>
 test('outlook scales only monthly ads while explicitly setting owned quantity',()=>{
  const base={...initialPlan(),units:{search:10,social:4,power:1,owned:10},cadence:{owned:'once'}};
  const before=structuredClone(base);const plans=outlookPlans(base,[{owned:4,adPercent:100},{owned:6,adPercent:50},{owned:0,adPercent:0}]);
- assert.deepEqual(plans.map(p=>p.units.search),[10,5,0]);assert.deepEqual(plans.map(p=>p.units.social),[4,2,0]);assert.deepEqual(plans.map(p=>p.units.owned),[4,6,0]);
+ assert.deepEqual(plans.map(p=>p.units.search),[10,0,0]);assert.deepEqual(plans.map(p=>p.units.social),[4,0,0]);assert.deepEqual(plans.map(p=>p.units.owned),[4,6,0]);
  assert.deepEqual(plans.map(p=>p.units.power),[1,1,1]);assert.deepEqual(base,before);
  const r=input(),snapshot=structuredClone(r);const forecast=projectMonthly(r,plans);assert.deepEqual(r,snapshot);assert.deepEqual(forecast.map(m=>m.month),[1,2,3]);assert.equal(forecast[2].performanceVisits,0);
 });

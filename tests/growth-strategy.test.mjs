@@ -20,7 +20,7 @@ test('both awareness and trust are required at the start of the month; high cons
  assert.equal(seedingEligibility({...product,involvement:'high'},memory).eligible,false);
  assert.equal(seedingEligibility({...product,involvement:'high'},{...memory,awareness:25,trust:35}).eligible,true);
  const first=project(input({experience:10,power:3,'influencer-seeding':10}),1)[0];assert.equal(first.expectedPlacements,0);assert.ok(first.memoryAfter.awareness>=20);assert.ok(first.memoryAfter.trust>=25);
- const second=project(input({'influencer-seeding':10},{memory:first.memoryAfter}),1)[0];assert.equal(second.expectedPlacements,.8);
+ const second=project(input({'influencer-seeding':10},{memory:first.memoryAfter}),1)[0];assert.equal(second.expectedPlacements,.1);
  const paid=project(input({micro:1}),1)[0];assert.ok(paid.marketingVisits>0); // Buying a placement is distinct from cold seeding.
 });
 test('SA brand awareness bonus raises SA conversion without manufacturing clicks or boosting unrelated DA cohorts',()=>{
@@ -97,8 +97,9 @@ test('phased mix gives up some early traffic but builds organic, referrals and r
 });
 
 test('repurchase products prioritize community relationship work within the content mix',()=>{
- const repeat=recommendMix(1,3000000,business,product,initialMemory());
- const oneoff=recommendMix(1,3000000,business,{...product,repurchasePossible:false},initialMemory());
+ const limited={...business,marketingTeam:{headcount:1,hoursPerPerson:100,performance:'standard',awarenessRetention:94}};
+ const repeat=recommendMix(1,3000000,limited,product,initialMemory());
+ const oneoff=recommendMix(1,3000000,limited,{...product,repurchasePossible:false},initialMemory());
  assert.ok(repeat.cafe>oneoff.cafe);
  const memory={...initialMemory(),awareness:30,trust:40,advocacy:20};
  const loyal=project(input({cafe:10},{memory}),1)[0],single=project(input({cafe:10},{memory,product:{...product,repurchasePossible:false}}),1)[0];

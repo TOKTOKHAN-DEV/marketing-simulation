@@ -1,8 +1,31 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {benchmarkFor,AD_SOURCES,CHANNELS,initialPlan,initialMemory,project,projectMonthly,outlookPlans,validateCampaign,clearCreativeActions} from '../model.mjs';
+import {benchmarkFor,AD_SOURCES,CHANNELS,allocationStep,nextAllocation,recommendMix,initialPlan,initialMemory,project,projectMonthly,outlookPlans,validateCampaign,clearCreativeActions} from '../model.mjs';
+import {scalePaidPlan} from '../funding.mjs';
 const business={id:'b',name:'광고 실습',industry:'commerce',market:'B2C',audience:''};
 const product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''};
 const input=(patch={})=>({business,product,plan:{...initialPlan(),budget:10000000,units:{display:30},campaigns:{display:{format:'image',refreshMonths:0}}},memory:initialMemory(),stage:3,...patch});
+test('each performance allocation block spends one million won and existing amounts keep their value',()=>{
+ for(const c of CHANNELS.filter(c=>c.group==='performance')){
+  const units=nextAllocation(c,0,1),plan={...initialPlan(),units:{[c.id]:units}};
+  const first=project(input({plan}),1)[0];assert.equal(first.spend,1000000);assert.ok(first.performanceVisits>0);assert.equal(units/allocationStep(c),1);
+  assert.equal(project(input({plan:{...plan,units:{[c.id]:nextAllocation(c,units,1)}}}),1)[0].spend,2000000);
+  assert.equal(nextAllocation(c,units,-1),0);assert.equal(nextAllocation(c,0,-1),0);
+  assert.equal(project(input({plan:{...plan,units:{[c.id]:15}}}),1)[0].spend,1500000);
+  assert.equal(nextAllocation(c,15,1),20);assert.equal(nextAllocation(c,15,-1),10);assert.equal(nextAllocation(c,2000,1),2000);
+ }
+ const content=CHANNELS.find(c=>c.id==='experience');assert.equal(nextAllocation(content,0,1),1);
+});
+test('recommended and expanded performance allocations stay in million-won blocks within funding',()=>{
+ for(const budget of [500000,1500000,5000000,100000000]){
+  const units=recommendMix(1,budget,business,product),plan={...initialPlan(),budget,units};
+  assert.equal(validateCampaign(input({plan})),null);
+  for(const c of CHANNELS.filter(c=>c.group==='performance'))assert.equal((units[c.id]||0)%allocationStep(c),0);
+ }
+ const plan={...initialPlan(),units:{search:10,display:20,social:10,owned:3,'influencer-seeding':10}},before=structuredClone(plan);
+ const scaled=scalePaidPlan(plan,CHANNELS,5000000,7800000);
+ assert.deepEqual(scaled.units,{search:10,display:30,social:10,owned:3,'influencer-seeding':10});assert.deepEqual(plan,before);
+ const legacy={...initialPlan(),units:{display:15}};assert.deepEqual(scalePaidPlan(legacy,CHANNELS,5000000,5000000),legacy);
+});
 test('CPC references preserve source USD data and make display estimation explicit',()=>{
  const b=benchmarkFor('education');assert.equal(b.searchUsd,4.81);assert.equal(b.socialUsd,.70);assert.equal(b.search,6730);assert.equal(b.social,980);assert.equal(b.fx,1400);assert.match(b.displayBasis,/推定|추정/);assert.ok(b.mapping.includes('교육'));
  assert.equal(benchmarkFor('saas').category,'Business Services');assert.ok(benchmarkFor('saas').mapping.includes('대용'));

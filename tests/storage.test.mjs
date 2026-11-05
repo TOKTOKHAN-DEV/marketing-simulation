@@ -106,7 +106,7 @@ test('reinvestment settings, previous revenue and funding forecasts survive relo
 test('an overspending future preview is retained as a warning without corrupting valid executed history',async()=>{
  const {simulate}=await import('../simulation.mjs');const {initialMemory,initialPlan}=await import('../model.mjs');
  const business={id:'b',name:'미래 예산 검증',industry:'commerce',market:'B2C',audience:'',budgetPolicy:{baseBudget:5000000,reinvestmentRate:.4},marketingTeam:{headcount:2,hoursPerPerson:120,performance:'standard',awarenessRetention:94}},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:'',canSponsor:true,sponsorshipCost:9000};
- const record=simulate({business,product,plan:{...initialPlan(),units:{display:30,experience:20,owned:20,'influencer-seeding':400}},memory:initialMemory(),stage:1,round:1});assert.ok(record.metrics.unallocated>=0);assert.ok(record.forecast.some(m=>m.unallocated<0));const state={...newState(),business,products:[product],productId:'p',history:[record]};assert.equal(validState(state),true);const bad=structuredClone(state);bad.history[0].metrics.unallocated=-1;assert.equal(validState(bad),false);
+ const record=simulate({business,product:{...product,sponsorshipCost:300000},plan:{...initialPlan(),units:{display:30,experience:20,owned:20,'influencer-seeding':400}},memory:initialMemory(),stage:1,round:1});assert.ok(record.metrics.unallocated>=0);assert.ok(record.forecast.some(m=>m.unallocated<0));const state={...newState(),business,products:[product],productId:'p',history:[record]};assert.equal(validState(state),true);const bad=structuredClone(state);bad.history[0].metrics.unallocated=-1;assert.equal(validState(bad),false);
 });
 
 test('M1-M12 monthly plans and selected future month restore; M13 and malformed entries are rejected',()=>{
@@ -130,4 +130,14 @@ test('a failed legacy cleanup rolls back the primary restart instead of silently
  const map=new Map([['marketing-quest:v2:fail','original'],['marketing-quest:v1:fail','legacy']]),before=[...map],old=globalThis.localStorage;
  globalThis.localStorage={getItem:key=>map.get(key)??null,setItem:(key,value)=>map.set(key,value),removeItem:key=>{if(key==='marketing-quest:v1:fail')throw new Error('cleanup failed');map.delete(key);}};
  try{assert.throws(()=>restartGame('fail'),/cleanup failed/);assert.deepEqual([...map],before);}finally{globalThis.localStorage=old;}
+});
+test('new domestic media, creative memory, group-buy fees and service commission queues survive reload',async()=>{
+ const {simulate}=await import('../simulation.mjs'),{initialPlan,initialMemory}=await import('../model.mjs');
+ const business={id:'b',name:'새 미디어 저장',industry:'commerce',market:'B2C',audience:''},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:'',canSponsor:true,sponsorshipCost:9000};
+ const plan={...initialPlan(),budget:100000000,units:{tiktok:10,linkedin:10,daangn:10,remember:10,'naver-gfa':10,kakao:10,'insta-review':1,'video-review':1,'group-buy':1,'owned-shortform':1,newsletter:1},campaigns:{tiktok:{format:'video',refreshMonths:2},remember:{format:'image',refreshMonths:3}}};
+ const record=simulate({business,product,plan,memory:initialMemory(),stage:1,round:1});record.memoryAfter.serviceQueues.old={pendingOrders:1,progressHours:10,marketingShare:1,performanceShare:0,groupBuyCommissionRate:.25};
+ const state={...newState(),business,products:[product],productId:'p',plans:{'p:monthly':plan},monthlyPlans:{12:{productId:'p',plan}},history:[record]};assert.equal(validState(state),true);
+ const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
+ try{const loaded=loadGame('domestic');assert.deepEqual(loaded.plans['p:monthly'],plan);assert.deepEqual(loaded.monthlyPlans[12].plan,plan);assert.equal(loaded.history[0].metrics.groupBuyFee,record.metrics.groupBuyFee);assert.equal(loaded.history[0].memoryAfter.adCreatives.p.tiktok.format,'video');assert.equal(loaded.history[0].memoryAfter.serviceQueues.old.groupBuyCommissionRate,.25);}finally{globalThis.localStorage=old;}
+ const bad=structuredClone(state);bad.history[0].memoryAfter.serviceQueues.old.groupBuyCommissionRate=.26;assert.equal(validState(bad),false);
 });
