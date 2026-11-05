@@ -3,7 +3,7 @@ import {budgetFor,memoryForHistory} from '../funding.mjs';
 import {findCompany} from './catalog';
 import {saveBusinessState,activateBusiness,deleteProduct,restoreProduct} from '../business-state.mjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowRight, BarChart3, BookOpen, Box, Check, ChevronRight, Info, LayoutGrid, LockKeyhole, Plus, RefreshCw, SlidersHorizontal, Sparkles, Store, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowRight, BarChart3, BookOpen, Box, Check, ChevronRight, Info, LayoutGrid, LockKeyhole, Plus, RefreshCw, RotateCcw, TriangleAlert, SlidersHorizontal, Sparkles, Store, X } from 'lucide-react';
 import { CHANNELS,clearCreativeActions,industryFor, initialMemory, initialPlan, project, recommendMix } from '../model.mjs';
 import MonthTimeline from './MonthTimeline';
 import {previewRevision,revisionPayload,mergeRevision,planForRecord} from '../timeline.mjs';
@@ -13,10 +13,10 @@ import Mix from './Mix';
 import Projection, { csvFor } from './Projection';
 import { BusinessForm, BusinessView, ProductForm } from './Forms';
 import { Modal, Select } from './components';
-import { loadGame,validState } from './storage';
+import { loadGame,restartGame,validState } from './storage';
 import { Business, Campaign, Config, GameState, Plan, Product, STAGES, View, money, newState, number, pct, salesLabel, won } from './types';
 
-type DialogName='business'|'product'|'model'|'notes'|'history'|null;
+type DialogName='business'|'product'|'model'|'notes'|'history'|'restart'|null;
 const menu=[{id:'dashboard' as const,label:'대시보드',Icon:LayoutGrid},{id:'mix' as const,label:'미디어 믹스',Icon:SlidersHorizontal},{id:'projection' as const,label:'매출 전망',Icon:BarChart3},{id:'business' as const,label:'비즈니스',Icon:Store}];
 function download(content:string,filename:string,type:string) {const url=URL.createObjectURL(new Blob([content],{type}));const anchor=document.createElement('a');anchor.href=url;anchor.download=filename;anchor.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);}
 
@@ -32,6 +32,8 @@ export default function App() {
   const [editProduct,setEditProduct]=useState<Product|undefined>();
   const [running,setRunning]=useState(false);
   const inFlight=useRef(false);
+  const restartCancel=useRef<HTMLButtonElement|null>(null);
+  const [restartError,setRestartError]=useState('');
   const load=async()=>{
     setError('');
     try {
@@ -131,6 +133,15 @@ export default function App() {
     }catch(e){setToast(e instanceof Error?e.message:'서버에 연결할 수 없어요.');}
     finally{setRunning(false);inFlight.current=false;}
   };
+  const openRestart=()=>{if(inFlight.current)return;setRestartError('');setDialog('restart');};
+  const confirmRestart=()=>{
+    if(inFlight.current||!config)return;
+    try{
+      const fresh=restartGame(config.workshopId);
+      setState(fresh);setEditProduct(undefined);setStorageError('');setSaved(true);setRestartError('');setDialog(null);
+      setToast('전체 진행을 초기화했어요. 비즈니스 생성부터 다시 시작하세요.');window.scrollTo({top:0,behavior:'instant'});
+    }catch{setRestartError('저장소를 초기화하지 못했어요. 기존 진행은 유지됩니다. 다시 시도해주세요.');}
+  };
   const exportAll=()=>{download(JSON.stringify({workshop:config,exportedAt:new Date().toISOString(),...state},null,2),`marketing-quest-${new Date().toISOString().slice(0,10)}.json`,'application/json');setToast('전체 진행 기록을 내보냈어요.');};
   const exportCSV=(rows:import('./types').Metrics[])=>download(csvFor(rows),`marketing-projection-${horizon}months.csv`,'text/csv;charset=utf-8');
   const industry=industryFor(state.business?.industry||'commerce');
@@ -146,9 +157,14 @@ export default function App() {
       {state.view==='mix'&&workingBusiness&&product&&<><MonthTimeline history={state.history} selectedMonth={targetMonth} entries={year.entries} onPlanMonth={selectPlanMonth} editingId={editing?.id} drafts={state.historyDrafts||{}} revision={revision} running={running} canUndo={!!state.revisionUndo} applyDisabled={config!.openStage===0} onSelect={selectMonth} onApply={applyRevision} onDiscard={()=>patch({historyDrafts:{}})} onUndo={undoRevision}/><Mix plan={plan} onChange={setPlan} stage={stage} openStage={config!.openStage} preview={preview} business={workingBusiness} product={product} memory={memory} running={running} onRun={editing?applyRevision:run} editingMonth={editing?.metrics.month} revisionPending={pendingRevision} revisionProblem={revision.error?`${revision.error.month}개월 차: ${revision.error.message}`:!editing&&pendingRevision?'과거 달의 수정안을 먼저 적용하거나 취소해주세요.':undefined} canReuse={!!reusable} onReuse={reuse} onFillFuture={fillFuture} canFillFuture={targetMonth<12&&!pendingRevision} executedMonths={actualMemory.month} executionBlocked={!editing&&targetMonth!==nextMonth?`M${Math.min(nextMonth,12)}부터 순서대로 실행`:undefined} onRecommend={()=>{setPlan({...plan,cadence:{},units:recommendMix(3,Math.max(0,budgetFor(workingBusiness,plan,memory).availableBudget),workingBusiness,product,memory,plan)});setToast('현재 브랜드와 리소스에 맞는 믹스를 채웠어요. 자유롭게 바꿔보세요.');}} onBusiness={()=>setDialog('business')} onModel={()=>setDialog('model')} onProjection={()=>navigate('projection')}/></>}
       {state.view==='projection'&&<><Projection entries={year.entries} business={state.business} product={product} memory={actualMemory} onExport={exportCSV} onModel={()=>setDialog('model')} onMix={()=>navigate('mix')} onEditMonth={selectPlanMonth}/>{stage===4&&config!.openStage>=4&&<section className="card reflection-card"><span className="eyebrow">REFLECT · TAKE IT TO YOUR BUSINESS</span><h2>오늘의 발견을, 다음 행동으로.</h2><label>가장 크게 달라진 생각은?<textarea maxLength={5000} value={state.reflection} onChange={e=>patch({reflection:e.target.value})} placeholder="숫자와 브랜드 인식의 변화에서 발견한 점을 기록하세요."/></label><label>다음 7일 안에 실행할 한 가지는?<textarea maxLength={5000} value={state.nextAction} onChange={e=>patch({nextAction:e.target.value})} placeholder="어떤 상품을, 어떤 미디어에서, 어떤 예산으로 실행할까요?"/></label><div className="reflection-actions"><button className="button secondary" onClick={()=>window.print()}>리포트 인쇄 / PDF</button><button className="button primary" onClick={exportAll}><ArrowDownToLine size={15}/>전체 기록 내보내기</button></div></section>}</>}
       {state.view==='business'&&<BusinessView business={state.business} products={state.products} productId={product?.id||''} onBusiness={()=>setDialog('business')} onProduct={openProduct} onSelect={selectProduct} onDelete={removeProduct} onUndoDelete={undoProductDelete} deletedProduct={state.deletedProduct?.product} sessions={state.businessSessions} onSwitch={switchBusiness} disabled={running}/>}
-      <footer className="app-footer"><span><span className="status-dot"/>이 브라우저에 자동 저장돼요.</span><div><button onClick={()=>setDialog('history')}>진행 기록</button><span>·</span><button onClick={()=>setDialog('model')}>시뮬레이션 기준</button></div><span>SMALL STEPS. REAL LEARNING.</span></footer>
+      <footer className="app-footer"><span><span className="status-dot"/>이 브라우저에 자동 저장돼요.</span><div><button onClick={()=>setDialog('history')}>진행 기록</button><span>·</span><button onClick={()=>setDialog('model')}>시뮬레이션 기준</button><span>·</span><button className="restart-link" disabled={running} onClick={openRestart}><RotateCcw size={12}/>전체 초기화</button></div><span>SMALL STEPS. REAL LEARNING.</span></footer>
     </main>
     <nav className="bottom-nav" aria-label="메인 메뉴">{menu.map(({id,label})=><button key={id} aria-current={state.view===id?'page':undefined} className={state.view===id?'active':''} onClick={()=>navigate(id)}><PixelIcon type={{dashboard:'flag',mix:'book',projection:'target',business:'store'}[id]} size={24}/><span>{label}</span>{state.view===id&&<i/>}</button>)}</nav>
+    <Modal open={dialog==='restart'} onClose={()=>setDialog(null)} title="처음부터 다시 시작할까요?" description="현재 워크숍에 저장한 모든 기업·상품·M1~M12 계획·실행 기록·전략 노트와 회고가 삭제됩니다." alert onInitialFocus={()=>restartCancel.current?.focus()}>
+      <div className="restart-warning"><TriangleAlert size={20}/><p>이 작업은 되돌릴 수 없어요.<br/>새로운 비즈니스를 만드는 처음 화면으로 돌아갑니다.</p></div>
+      {restartError&&<p className="inline-error" role="alert">{restartError}</p>}
+      <div className="restart-actions"><button className="button secondary" ref={restartCancel} onClick={()=>setDialog(null)}>취소</button><button className="button restart-confirm" disabled={running} onClick={confirmRestart}><RotateCcw size={15}/>모두 지우고 다시 시작</button></div>
+    </Modal>
     <Modal open={dialog==='business'} onClose={()=>setDialog(null)} title={state.business?'비즈니스 수정':'먼저, 비즈니스부터.'} description="기업에 맞는 상품을 함께 준비해요. 검색 결과가 없으면 업종별 초안을 만듭니다."><BusinessForm key={dialog==='business'?'open':'closed'} business={state.business} sessions={state.businessSessions} onSave={saveBusiness}/></Modal>
     <Modal open={dialog==='product'&&!!state.business} onClose={()=>setDialog(null)} title={editProduct?'상품 수정':'어떤 상품을 판매하나요?'} description="상품은 별도로 등록해요. 가격과 구매 방식이 매출에 반영됩니다.">{state.business&&<ProductForm key={`${dialog}:${editProduct?.id||'new'}`} product={editProduct} business={state.business} onSave={saveProduct}/>}</Modal>
     <Modal open={dialog==='notes'} onClose={()=>setDialog(null)} title="나의 전략 노트" description="강의의 발견과 다음 실험 아이디어. 입력하는 대로 저장돼요."><textarea className="notes-editor" maxLength={20000} value={state.notes} onChange={e=>patch({notes:e.target.value})} placeholder="오늘 내 사업에 적용하고 싶은 것은…"/><div className="notes-footer"><span>{number(state.notes.length)} / 20,000</span><button className="text-button" onClick={exportAll}><ArrowDownToLine size={14}/>전체 기록 내보내기</button></div></Modal>

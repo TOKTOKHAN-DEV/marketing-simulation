@@ -78,3 +78,17 @@ export function loadGame(workshopId:string):GameState {
   const previous=localStorage.getItem(`marketing-quest:v1:${workshopId}`);
   return enableReinvestment(previous?migrateLegacy(JSON.parse(previous)):newState());
 }
+
+export function restartGame(workshopId:string):GameState {
+  const key=`marketing-quest:v2:${workshopId}`,legacyKey=`marketing-quest:v1:${workshopId}`;
+  const previous=localStorage.getItem(key),legacy=localStorage.getItem(legacyKey),fresh=newState();
+  try{
+    localStorage.setItem(key,JSON.stringify(fresh));
+    localStorage.removeItem(legacyKey);
+  }catch(error){
+    // Keep the visible game and its durable source together if a storage write fails.
+    try{if(previous===null)localStorage.removeItem(key);else localStorage.setItem(key,previous);if(legacy!==null)localStorage.setItem(legacyKey,legacy);}catch{}
+    throw error;
+  }
+  return fresh;
+}

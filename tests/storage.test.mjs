@@ -6,7 +6,7 @@ const compile=source=>ts.transpileModule(source,{compilerOptions:{target:ts.Scri
 const moduleUrl=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const typesUrl=moduleUrl(compile(readFileSync(new URL('../src/types.ts',import.meta.url),'utf8')));
 const source=compile(readFileSync(new URL('../src/storage.ts',import.meta.url),'utf8')).replace("'../model.mjs'",JSON.stringify(new URL('../model.mjs',import.meta.url).href)).replace("'./types'",JSON.stringify(typesUrl)).replace("'../funding.mjs'",JSON.stringify(new URL('../funding.mjs',import.meta.url).href));
-const {migrateLegacy,migrateMonthlyDrafts,loadGame,validState}=await import(moduleUrl(source));
+const {migrateLegacy,migrateMonthlyDrafts,loadGame,restartGame,validState}=await import(moduleUrl(source));
 const {newState}=await import(typesUrl);
 const legacy={version:1,profile:{name:'이전 기업',industry:'IT / 소프트웨어',market:'B2B',audience:'작은 팀',product:'구독 서비스',price:200000,problem:'반복 업무'},results:[{id:'old-result'}],notes:'소중한 노트',reflection:'발견',nextAction:'다음 행동'};
 test('legacy business and product migrate separately without losing notes or original experiments',()=>{const before=structuredClone(legacy);const game=migrateLegacy(legacy);assert.equal(game.business.name,'이전 기업');assert.equal(game.business.industry,'saas');assert.equal(game.products[0].name,'구독 서비스');assert.equal(game.products[0].businessId,game.business.id);assert.equal(game.products[0].price,200000);assert.equal(game.notes,'소중한 노트');assert.deepEqual(game.legacyArchive.results,legacy.results);assert.equal(game.history.length,0);assert.equal(validState(game),true);assert.deepEqual(legacy,before);});
@@ -114,4 +114,20 @@ test('M1-M12 monthly plans and selected future month restore; M13 and malformed 
  const state={...newState(),business,products:[product],productId:'p',monthlyPlans:{1:{productId:'p',plan},12:{productId:'p',plan:{...plan,units:{display:20}}}},planningMonth:12};assert.equal(validState(state),true);
  const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};try{const loaded=loadGame('annual');assert.equal(loaded.planningMonth,12);assert.equal(loaded.monthlyPlans[12].plan.units.display,20);}finally{globalThis.localStorage=old;}
  assert.equal(validState({...state,planningMonth:13}),false);assert.equal(validState({...state,monthlyPlans:{13:{productId:'p',plan}}}),false);assert.equal(validState({...state,monthlyPlans:{1:{productId:'p',plan:{...plan,units:{bogus:1}}}}}),false);
+});
+
+test('full restart removes all current workshop businesses, plans and history without touching other workshops',()=>{
+ const game={...newState(),business:{id:'b',name:'기존 기업',industry:'commerce',market:'B2C',audience:''},notes:'전략 노트',reflection:'회고',nextAction:'행동',monthlyPlans:{12:{productId:'p',plan:{budget:5000000,units:{display:10},hypothesis:'가설'}}},planningMonth:12,businessSessions:{archived:{notes:'보관 기업 기록'}},legacyArchive:{notes:'이전 버전 원본'}};
+ const map=new Map([['marketing-quest:v2:restart',JSON.stringify(game)],['marketing-quest:v1:restart',JSON.stringify(legacy)],['marketing-quest:v2:other','다른 워크숍 기록'],['unrelated','유지']]);const old=globalThis.localStorage;globalThis.localStorage={getItem:key=>map.get(key)??null,setItem:(key,value)=>map.set(key,value),removeItem:key=>map.delete(key)};
+ try{const fresh=restartGame('restart');assert.deepEqual(fresh,newState());assert.equal(validState(fresh),true);assert.deepEqual(loadGame('restart'),newState());assert.equal(map.has('marketing-quest:v1:restart'),false);assert.equal(map.get('marketing-quest:v2:other'),'다른 워크숍 기록');assert.equal(map.get('unrelated'),'유지');assert.ok(!map.get('marketing-quest:v2:restart').includes('전략 노트'));assert.equal(game.notes,'전략 노트');}finally{globalThis.localStorage=old;}
+});
+test('a failed restart write preserves the existing durable game and legacy record',()=>{
+ const map=new Map([['marketing-quest:v2:fail','original'],['marketing-quest:v1:fail','legacy']]),before=[...map],old=globalThis.localStorage;
+ globalThis.localStorage={getItem:key=>map.get(key)??null,setItem:()=>{throw new Error('storage blocked');},removeItem:key=>map.delete(key)};
+ try{assert.throws(()=>restartGame('fail'),/storage blocked/);assert.deepEqual([...map],before);}finally{globalThis.localStorage=old;}
+});
+test('a failed legacy cleanup rolls back the primary restart instead of silently losing visible progress',()=>{
+ const map=new Map([['marketing-quest:v2:fail','original'],['marketing-quest:v1:fail','legacy']]),before=[...map],old=globalThis.localStorage;
+ globalThis.localStorage={getItem:key=>map.get(key)??null,setItem:(key,value)=>map.set(key,value),removeItem:key=>{if(key==='marketing-quest:v1:fail')throw new Error('cleanup failed');map.delete(key);}};
+ try{assert.throws(()=>restartGame('fail'),/cleanup failed/);assert.deepEqual([...map],before);}finally{globalThis.localStorage=old;}
 });
