@@ -17,7 +17,12 @@ export function validState(v:unknown):v is GameState {
   if(!record(v)||v.version!==2||!(v.business===null||business(v.business))||!Array.isArray(v.products)||v.products.length>50||!v.products.every(product)||!text(v.productId)||!record(v.plans)||!Object.values(v.plans).every(plan)||!Array.isArray(v.history)||!['dashboard','mix','projection','business'].includes(v.view as string)||!Number.isInteger(v.stage)||Number(v.stage)<1||Number(v.stage)>4||!['notes','reflection','nextAction'].every(k=>text(v[k])))return false;
   if(v.projectionHorizon!==undefined&&v.projectionHorizon!==3&&v.projectionHorizon!==6)return false;
   if(v.outlook!==undefined&&(!record(v.outlook)||Object.values(v.outlook).some(rows=>!Array.isArray(rows)||rows.length>6||!rows.every(row=>record(row)&&Number.isInteger(row.owned)&&finite(row.owned)&&Number(row.owned)<=2000&&finite(row.adPercent)&&[0,25,50,75,100].includes(Number(row.adPercent))&&(row.creativeAction===undefined||['auto','refresh','reuse'].includes(String(row.creativeAction)))))))return false;
-  return v.history.every(r=>record(r)&&text(r.id)&&business(r.businessSnapshot)&&product(r.productSnapshot)&&plan(r.plan)&&Number.isInteger(r.stage)&&Number(r.stage)>=1&&Number(r.stage)<=4&&memory(r.memoryBefore)&&memory(r.memoryAfter)&&metrics(r.metrics)&&Array.isArray(r.forecast)&&r.forecast.every(metrics));
+  const history=v.history;
+  const validHistory=(rows:unknown)=>Array.isArray(rows)&&rows.every(r=>record(r)&&text(r.id)&&business(r.businessSnapshot)&&product(r.productSnapshot)&&plan(r.plan)&&Number.isInteger(r.stage)&&Number(r.stage)>=1&&Number(r.stage)<=4&&memory(r.memoryBefore)&&memory(r.memoryAfter)&&metrics(r.metrics)&&Array.isArray(r.forecast)&&r.forecast.every(metrics));
+  if(v.editingCampaignId!==undefined&&(!text(v.editingCampaignId)||!history.some(r=>record(r)&&r.id===v.editingCampaignId)))return false;
+  if(v.historyDrafts!==undefined&&(!record(v.historyDrafts)||!Object.values(v.historyDrafts).every(plan)||Object.keys(v.historyDrafts).some(id=>!history.some(r=>record(r)&&r.id===id))))return false;
+  if(v.revisionUndo!==undefined&&(!record(v.revisionUndo)||!text(v.revisionUndo.revisedAt)||!validHistory(v.revisionUndo.history)))return false;
+  return validHistory(v.history);
 }
 
 function industryFromLegacy(label:string) {

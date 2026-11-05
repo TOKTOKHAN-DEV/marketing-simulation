@@ -1,4 +1,5 @@
 import express from 'express';
+import {replayRequest} from './replay-request.mjs';
 import { readConfig, simulate, validateRequest } from './simulation.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +14,7 @@ app.use((req,res,next)=>{
   if(/applications-[^/]*\.csv$/i.test(pathname))return res.sendStatus(404);
   next();
 });
+app.use('/api/replay',express.json({limit:'2mb'}));
 app.use(express.json({ limit: '128kb' }));
 app.get('/api/session', (_req, res) => {
   res.set('Cache-Control', 'no-store').json(readConfig(root));
@@ -24,6 +26,7 @@ app.post('/api/simulate', (req, res) => {
   if (error) return res.status(error.status).json({ error: error.message });
   res.json(simulate(req.body));
 });
+app.post('/api/replay',(req,res)=>{res.set('Cache-Control','no-store');const {status,...result}=replayRequest(req.body,readConfig(root));res.status(status).json(result);});
 app.use('/api', (_req, res) => res.status(404).json({ error: '요청을 찾을 수 없습니다.' }));
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(root, 'dist')));

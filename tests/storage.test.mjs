@@ -55,3 +55,14 @@ test('more than nine monthly records and review-topic runs survive reload',async
  assert.equal(validState(state),true);const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
  try{const restored=loadGame('continuous');assert.equal(restored.history.length,12);assert.equal(restored.history.at(-1).metrics.month,12);assert.equal(restored.history.at(-1).round,12);assert.equal(restored.history.at(-1).stage,4);}finally{globalThis.localStorage=old;}
 });
+test('historical month drafts, selection and one-level undo survive a browser reload',async()=>{
+ const {simulate}=await import('../simulation.mjs');const {initialMemory}=await import('../model.mjs');const {previewRevision}=await import('../timeline.mjs');
+ const b={id:'b',name:'수정 복원',industry:'commerce',market:'B2C',audience:''},p={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''};
+ const first=simulate({business:b,product:p,plan:{budget:3000000,units:{owned:4},hypothesis:''},memory:initialMemory(),stage:1,round:1});
+ const state={...newState(),business:b,products:[p],productId:'p',history:[first],editingCampaignId:first.id,historyDrafts:{[first.id]:{...first.plan,units:{owned:8}}}};
+ assert.equal(validState(state),true);const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
+ try{const restored=loadGame('revision');assert.equal(restored.editingCampaignId,first.id);assert.equal(restored.historyDrafts[first.id].units.owned,8);assert.equal(restored.history[0].plan.units.owned,4);}finally{globalThis.localStorage=old;}
+ const revised=previewRevision(state.history,state.historyDrafts);const applied={...state,history:revised.history,historyDrafts:{},revisionUndo:{history:state.history,revisedAt:new Date().toISOString()}};
+ assert.equal(validState(applied),true);assert.equal(applied.revisionUndo.history[0].plan.units.owned,4);assert.equal(applied.history[0].plan.units.owned,8);
+ assert.equal(validState({...state,editingCampaignId:'missing'}),false);assert.equal(validState({...state,historyDrafts:{missing:first.plan}}),false);
+});

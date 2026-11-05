@@ -308,3 +308,35 @@ button:focus-visible,a:focus-visible{outline:2px solid #e1cd9c;outline-offset:4p
 @media(max-width:650px){.cpc-research{padding:13px}.cpc-research-grid{gap:10px;grid-template-columns:1fr}.cpc-research-grid>div{padding-left:12px}.cpc-research-grid b{font-size:19px;margin:3px 0}.ad-campaign-controls .select-trigger{font-size:9px}.ad-model-note{font-size:8px}.creative-status{padding:10px}.creative-status>span{font-size:9px}.creative-status>b{font-size:14px}.ad-cpc>span{font-size:9px}}
 .creative-month-state{margin-top:7px;text-align:left;min-width:145px}
 .creative-month-state>span{display:block;font-size:8px;line-height:1.95;color:#b8c8a5;white-space:nowrap}
+/* Revisiting an executed month keeps the live draft separate. */
+.month-timeline{padding:21px;border:2px solid #52596f;background:#202738;box-shadow:4px 4px 0 #090d18;margin-bottom:24px;min-width:0}
+.month-timeline-top{display:flex;align-items:center;justify-content:space-between;gap:22px}
+.month-timeline h2{font-size:17px;font-weight:400;line-height:1.8;margin-top:7px}
+.month-timeline>p{font-size:10px;color:#adb8cb;line-height:1.95;margin-top:13px}
+.month-selector{display:flex;align-items:center;gap:8px;width:385px;max-width:100%;min-width:0}
+.month-selector>.select-trigger{font-size:11px;flex:1;min-width:0}
+.month-selector>.icon-button{flex-shrink:0}
+.timeline-actions{display:flex;align-items:center;flex-wrap:wrap;gap:11px 17px;margin-top:12px}
+.timeline-actions:empty{display:none}
+.timeline-actions .text-button{font-size:10px}
+.revision-pending{font-size:10px;line-height:1.9;color:#d3c19d}
+.revision-error{border:1px solid #9d695a;background:#5e343833;padding:14px;margin-top:17px;font-size:11px;line-height:1.9;color:#e0b49c}
+.revision-error>.text-button{margin-left:12px}
+.revision-comparison{border-top:1px solid #4b536c;padding-top:17px;margin-top:17px}
+.revision-comparison>summary{font-size:11px;color:#c7dab1;line-height:1.9;cursor:pointer}
+.revision-totals{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin:18px 0}
+.revision-totals span{font-size:10px;color:#aab8cc}
+.revision-totals b{font-weight:400;display:block;font-size:17px;line-height:1.9;color:#d5e6bd;margin-top:8px}
+.revision-table-scroll{max-height:265px;overflow:auto;scrollbar-width:thin;scrollbar-color:#75809b #242c40;border:1px solid #4a536c}
+.revision-table-scroll table{width:100%;min-width:650px;white-space:nowrap;border-collapse:collapse;text-align:right;font-size:10px;line-height:1.9}
+.revision-table-scroll th,.revision-table-scroll td{padding:10px 13px;border-bottom:1px solid #414b62;font-weight:400}
+.revision-table-scroll thead th{position:sticky;top:0;background:#303a50;color:#becbe0;z-index:1}
+.revision-table-scroll th:first-child{text-align:left;color:#d7deb8}
+.revision-table-scroll th>small{display:block;font-size:8px;color:#c3ae8e}
+.revision-table-scroll td{color:#b9c8dc}
+.revision-comparison>small{display:block;font-size:9px;line-height:1.95;margin-top:12px;color:#a3adc2}
+.historical-product{display:block;font-size:12px;line-height:1.9;color:#d0deba;border:1px solid #5a665b;padding:10px 13px;background:#2b352e}
+.historical-product>small{display:block;font-size:9px;line-height:1.9;color:#a5b9a3;margin-top:5px}
+@media(max-width:900px){.month-timeline-top{align-items:flex-start;flex-direction:column;gap:15px}.month-selector{width:100%}.revision-totals b{font-size:15px}}
+@media(max-width:650px){.month-timeline{padding:17px 13px;margin-bottom:21px}.month-timeline h2{font-size:16px}.month-selector{gap:3px}.month-selector>.select-trigger{font-size:10px}.month-timeline>p{font-size:9px}.timeline-actions{gap:8px 13px}.timeline-actions .text-button,.revision-pending{font-size:9px}.timeline-actions .button{font-size:10px}.revision-totals{grid-template-columns:1fr;gap:12px}.revision-totals>div{display:flex;justify-content:space-between;align-items:center;gap:10px}.revision-totals b{font-size:15px;margin-top:0}.revision-totals span{font-size:9px}.revision-error{font-size:10px;padding:12px}.revision-comparison>small{font-size:8px}.historical-product{font-size:10px;padding:8px 10px}.historical-product>small{font-size:8px}}
+@media print{.month-timeline{display:none!important}}
