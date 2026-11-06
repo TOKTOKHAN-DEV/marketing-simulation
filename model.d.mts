@@ -26,6 +26,8 @@ export function seedingFor(plan:Plan):{mode:'gift'|'paid'|'referral';fee:number;
 export function productProfile(product:Product,referencePrice?:number):{involvement:'low'|'high';high:boolean;repurchasable:boolean};
 export function seedingEligibility(product:Product,memory:Memory,referencePrice?:number):{eligible:boolean;awareness:number;trust:number};
 export const BRAND_RULES:BrandRules;
+export const BLOG_CHANNEL_IDS:string[];
+export const BLOG_AUDIENCE_RULES:{monthlyRetention:number;loyaltyRate:number};
 export function isPaidSnsBrandChannel(id:string):boolean;
 export function megaEligibility(memory:Memory):{eligible:boolean;awareness:number;trust:number};
 export function seedingRate(mode:string):number;

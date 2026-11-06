@@ -1,7 +1,7 @@
 import {budgetFor,scalePaidPlan,allocationBudget} from './funding.mjs';
 export {budgetFor} from './funding.mjs';
-import {growthStrategy,productProfile,seedingEligibility,megaEligibility,isPaidSnsBrandChannel,brandGrowth,STRATEGY_RULES} from './strategy.mjs';
-export {productProfile,seedingEligibility,contentFoundation,megaEligibility,isPaidSnsBrandChannel,BRAND_RULES} from './strategy.mjs';
+import {growthStrategy,productProfile,seedingEligibility,megaEligibility,isPaidSnsBrandChannel,brandGrowth,STRATEGY_RULES,BLOG_ASSET_WEIGHTS,BLOG_CHANNEL_IDS,BLOG_AUDIENCE_RULES} from './strategy.mjs';
+export {productProfile,seedingEligibility,contentFoundation,megaEligibility,isPaidSnsBrandChannel,BRAND_RULES,BLOG_CHANNEL_IDS,BLOG_AUDIENCE_RULES} from './strategy.mjs';
 import {benchmarkFor,AD_SOURCES} from './research/ad-benchmarks.mjs';
 import {EXTRA_CHANNELS,EXTRA_ADS,MEDIA_SOURCES} from './research/domestic-media.mjs';
 export {MEDIA_SOURCES} from './research/domestic-media.mjs';
@@ -46,7 +46,7 @@ export const CREATIVE_IDS=AD_IDS.filter(id=>!isSearchAd(id));
 export const searchCpcFor=(market,kind='search')=>(market==='B2C'?5000:20000)*(kind==='brand-sa'?.1:1);
 export const brandSearchDemand=memory=>Math.floor(Math.max(0,memory.awareness-20)**2*2+((memory.awareness>=20)?memory.customers*.5:0));
 export const GROUP_BUY_COMMISSION=.25;
-export const initialMemory=()=>({awareness:5,trust:8,advocacy:3,organicAssets:0,customers:0,productCustomers:{},serviceQueues:{},cumulativeRevenue:0,cumulativeSpend:0,month:0});
+export const initialMemory=()=>({awareness:5,trust:8,advocacy:3,organicAssets:0,blogAudience:0,customers:0,productCustomers:{},serviceQueues:{},cumulativeRevenue:0,cumulativeSpend:0,month:0});
 export const initialPlan=()=>({budget:3000000,units:{},hypothesis:''});
 export const industryFor=id=>INDUSTRIES.find(i=>i.id===id)||INDUSTRIES.at(-1);
 export const TEAM_LEVELS={starter:{label:'주니어',speed:.7,quality:.8},standard:{label:'일반',speed:1,quality:1},expert:{label:'숙련',speed:1.4,quality:1.2}};
@@ -121,6 +121,7 @@ export function validateCampaign({business:b,product:p,products,plan,memory:m,st
   }
   if(!m||!['awareness','trust','advocacy'].every(k=>finiteIn(m[k],0,100))||!Number.isInteger(m.month)||!finiteIn(m.month,0,999999)||!finiteIn(m.organicAssets,0,100000)||!finiteIn(m.customers,0,1e9)||!m.productCustomers||typeof m.productCustomers!=='object'||Array.isArray(m.productCustomers)||Object.keys(m.productCustomers).length>100||!Object.values(m.productCustomers).every(n=>Number.isInteger(n)&&finiteIn(n,0,1e9)))return '누적 브랜드 데이터를 확인해주세요.';
   if(m.month>=12)return 'M1~M12의 12개월까지만 실행할 수 있어요. 기존 달의 전략을 수정해주세요.';
+  if(m.blogAudience!==undefined&&!finiteIn(m.blogAudience,0,1e9))return '블로그 자연 유입 재방문 기반을 확인해주세요.';
   if(m.lastRevenue!==undefined&&!finiteIn(m.lastRevenue,0,1e18))return '전월 매출 데이터를 확인해주세요.';
   if(['cumulativeRevenue','cumulativeSpend'].some(k=>m[k]!==undefined&&(!Number.isInteger(m[k])||!finiteIn(m[k],0,1e18)))||(b.budgetPolicy?.mode==='cash'&&m.month>0&&['cumulativeRevenue','cumulativeSpend'].some(k=>m[k]===undefined)))return '누적 매출과 누적 마케팅 집행비를 확인해주세요.';
   if(b.budgetPolicy?.mode==='cash'&&m.month===0&&((m.cumulativeRevenue||0)!==0||(m.cumulativeSpend||0)!==0))return '첫 달의 누적 매출·집행비는 0원부터 시작해요.';
@@ -227,14 +228,24 @@ function monthFor({business:b,product:p,products,plan,memory:m}) {
     gainA+=c.awareness*brandUnits*fit;if(c.ownership==='owned')gainOwned+=c.awareness*brandUnits*fit;
     gainT+=c.trust*brandUnits*fit;gainV+=c.advocacy*brandUnits*(strategy.profile.repurchasable?1.2:1);
     if(isPaidSnsBrandChannel(c.id)){paidSnsA+=c.awareness*brandUnits*fit;paidSnsT+=c.trust*brandUnits*fit;}
-    if(c.ownership==='owned')assets+=units*(c.id==='owned'?1:c.id==='platform'?.12:.04)*quality*saturation;
+    if(BLOG_CHANNEL_IDS.includes(c.id)||c.ownership==='owned')assets+=units*(BLOG_ASSET_WEIGHTS[c.id]??(c.id==='platform'?.12:.04))*quality*saturation;
     return{id:c.id,name:c.name,group:c.group,ownership:c.ownership,requestedUnits:c.requestedUnits,units,placements:rounded(c.placements),collaborationBlocked:c.collaborationBlocked,workHours:c.workHours,spend:c.spend,visits,impressions,intent:c.ad?.intent??c.intent,searchBrandMultiplier:isSearchAd(c.id)?strategy.searchBrandMultiplier:1,adEfficiency:c.group==='performance'?strategy.adMultiplier:1,...(c.ad?{campaignType:c.ad.campaignType,baseCpc:c.ad.baseCpc,effectiveCpc:rounded(c.ad.effectiveCpc),creativeAge:c.ad.creativeAge,creativeRefreshed:c.ad.creativeRefreshed,creativeHours:rounded(c.ad.creativeHours),clickMultiplier:rounded(c.ad.clickMultiplier),conversionMultiplier:rounded(c.ad.conversionMultiplier),creativeFormat:c.ad.settings.format}:{}),awarenessGain:rounded(c.awareness*brandUnits*fit),trustGain:rounded(c.trust*brandUnits*fit)};
   });
   const marketingVisits=channels.reduce((a,c)=>a+c.visits,0);
   // This month's brand investment changes NEXT month's organic acquisition.
-  const assetVisits=Math.floor(m.organicAssets*65*industry.content*strategy.assetReach*strategy.content.organicAssetShare);
-  const brandVisits=Math.floor((m.awareness>=30?Math.pow(m.awareness-29,1.32)*18:0)*industry.content*Math.min(1,Math.max(0,(m.trust-10)/20))*strategy.content.brandDemandMultiplier);
-  const organicVisits=assetVisits+brandVisits;
+  const content=strategy.content,assetPotential=m.organicAssets*65*industry.content*strategy.assetReach;
+  const blogSearchVisits=content.blogReady?Math.floor(assetPotential*content.blogAssetShare):0;
+  const otherAssetVisits=Math.floor(assetPotential*Math.max(0,content.organicAssetShare-(content.blogReady?content.blogAssetShare:0)));
+  const assetVisits=blogSearchVisits+otherAssetVisits;
+  const brandPotential=(m.awareness>=30?Math.pow(m.awareness-29,1.32)*18:0)*industry.content*Math.min(1,Math.max(0,(m.trust-10)/20));
+  const otherBrandVisits=Math.floor(brandPotential*content.nonBlogBrandMultiplier);
+  const brandVisits=content.blogReady?Math.floor(brandPotential):otherBrandVisits;
+  const blogNewVisits=blogSearchVisits+brandVisits-otherBrandVisits;
+  // Only blog organic acquisition builds this audience. Advertising clicks never enter it.
+  const blogReturningVisits=content.blogReady?Math.floor((m.blogAudience||0)*BLOG_AUDIENCE_RULES.monthlyRetention):0;
+  const blogOrganicVisits=blogNewVisits+blogReturningVisits;
+  const organicVisits=assetVisits+brandVisits+blogReturningVisits;
+  const blogAudience=content.blogReady?Math.min(1e9,rounded((m.blogAudience||0)*BLOG_AUDIENCE_RULES.monthlyRetention+blogNewVisits*BLOG_AUDIENCE_RULES.loyaltyRate)):0;
   const referralVisits=Math.floor(m.customers*industry.referral*strategy.relationship);
   const visits=marketingVisits+organicVisits+referralVisits;
   const priceRatio=p.price/industry.referencePrice;
@@ -296,16 +307,17 @@ function monthFor({business:b,product:p,products,plan,memory:m}) {
   for(const c of summary.channels){if(c.ad&&!isSearchAd(c.id)){
     adCreatives[p.id]??={};adCreatives[p.id][c.id]={age:Math.min(1000,c.ad.creativeAge+1),format:c.ad.settings.format,quality:c.ad.quality,lastRefreshMonth:c.ad.creativeRefreshed?m.month+1:m.adCreatives[p.id][c.id].lastRefreshMonth};
   }}
-  const memoryAfter={awareness:rounded(brand.awareness),ownedAwareness:rounded(brand.ownedAwareness),trust:rounded(brand.trust),advocacy:rounded(bounded(m.advocacy*.98+gainV,0,98)),organicAssets:rounded(m.organicAssets*.96+assets),customers:m.customers+newOrders+extraCustomers,productCustomers,serviceQueues,contentPublished,adCreatives,strategyStates:{...(m.strategyStates||{}),[p.id]:strategy.next},lastRevenue:companyRevenue,cumulativeRevenue:(funding.mode==='cash'&&m.month===0?0:m.cumulativeRevenue||0)+companyRevenue,cumulativeSpend:(funding.mode==='cash'&&m.month===0?0:m.cumulativeSpend||0)+spend,month:m.month+1};
+  const memoryAfter={awareness:rounded(brand.awareness),ownedAwareness:rounded(brand.ownedAwareness),trust:rounded(brand.trust),advocacy:rounded(bounded(m.advocacy*.98+gainV,0,98)),organicAssets:rounded(m.organicAssets*.96+assets),blogAudience,customers:m.customers+newOrders+extraCustomers,productCustomers,serviceQueues,contentPublished,adCreatives,strategyStates:{...(m.strategyStates||{}),[p.id]:strategy.next},lastRevenue:companyRevenue,cumulativeRevenue:(funding.mode==='cash'&&m.month===0?0:m.cumulativeRevenue||0)+companyRevenue,cumulativeSpend:(funding.mode==='cash'&&m.month===0?0:m.cumulativeSpend||0)+spend,month:m.month+1};
   const dominant=[...channels].filter(c=>c.awarenessGain>0||c.trustGain>0).sort((a,b)=>b.awarenessGain-a.awarenessGain)[0];
   let narrative=dominant?`${dominant.name} 중심으로 활동했어요. ${dominant.awarenessGain>dominant.trustGain?'브랜드를 알아보는 접점':'고객이 신뢰할 근거'}가 늘었습니다. ${strategy.content.blogReady||strategy.content.brandDemandMultiplier>0?'콘텐츠 기반과 신뢰가 다음 달 자연 검색·추천 유입에 기여해요.':'직접 유입 전에 콘텐츠 기반부터 쌓고 있어요.'}`:marketingVisits>0?'광고로 당월 방문을 확보했어요. 광고만으로 검색 자산·신뢰·추천이 쌓이지는 않습니다.':'이번 달 새 발행 성과 없이 기존 자산으로 운영했어요. 인지도는 월 유지율에 따라 감소합니다.';
   narrative+=' '+strategy.warnings.join(' ');
   if(cashBlocked)narrative+=' 잔여 자금이 0원이므로 저장한 신규 마케팅 계획은 실행하지 않고 한 달을 패스했어요.';
   if(summary.channels.some(c=>['brand-sa','naver-brand'].includes(c.id)))narrative+=' 자사명 SA와 네이버 브랜드 검색은 같은 월초 브랜드 검색 수요를 나눠 확보합니다. 정액 계약은 유입이 적어도 전액 과금됩니다.';
-  if(summary.channels.some(c=>c.id==='owned')&&!strategy.content.blogReady)narrative+=' 온드블로그는 누적 100편 전까지 직접·검색 유입이 0입니다. 외부 접점으로 초기 유입을 확보하며 투자 여력을 확인하세요.';
+  if(summary.channels.some(c=>BLOG_CHANNEL_IDS.includes(c.id))&&!strategy.content.blogReady)narrative+=' 전체 블로그 누적 200편 전까지 블로그 자연 검색 유입은 0입니다. 온드 직접 유입도 열리지 않지만 유료 발행의 당월 노출 유입은 별도입니다. 외부 접점으로 초기 유입을 확보하며 투자 여력을 확인하세요.';
+  if(blogReturningVisits)narrative+=` 블로그 자연 유입 기반에서 ${blogReturningVisits}명이 재방문했어요. 광고를 중단해도 이 기반은 월 90% 유지되며 점차 감소합니다.`;
   if(p.purchaseType==='service')narrative+=` 이번 달 ${sales.hoursUsed}시간을 사용해 ${newOrders}건을 완료했어요. 미완료 ${sales.serviceBacklog}건은 다음 달로 이월하며, 완료된 건만 매출로 계산해요.`;
   if(p.purchaseType==='subscription')narrative+=` 신규 ${sales.newSubscribers}명, 해지 ${sales.churnedSubscribers}명으로 현재 활성 구독자는 ${sales.activeSubscribers}명이에요.`;
-  return{funding:{...funding,settledFromRevenue,nextBudget:funding.mode==='cash'?Math.max(0,funding.availableBudget+companyRevenue-spend):b.budgetPolicy?funding.baseBudget+Math.floor(companyRevenue*funding.reinvestmentRate):plan.budget,nextRecommendedBudget:funding.baseBudget+Math.floor(companyRevenue*funding.reinvestmentRate)},strategy:{...strategy,next:undefined},creativeWorkHours:summary.creativeWorkHours,creativeRefreshes:summary.creativeRefreshes,adCpc:performanceVisits?Math.round(performanceSpend/performanceVisits):null,assetVisits,brandVisits,performanceVisits,organicShare:visits?organicVisits/visits:0,organicReadiness:rounded(strategy.foundation*100),workHours:summary.workHours,teamCapacity:summary.teamCapacity,ownedPublished:summary.ownedPublished,expectedPlacements:rounded(channels.find(c=>c.id==='influencer-seeding')?.placements||0),seedingAttempts:channels.find(c=>c.id==='influencer-seeding')?.units||0,awarenessLoss:rounded(brand.awarenessLoss),ownedRetention,paidRetention,month:m.month+1,budget:funding.availableBudget,spend,unallocated:funding.availableBudget-spend+settledFromRevenue,marketingVisits,organicVisits,referralVisits,referralConversionRate,visits,leadRate,leads,retentionRate,retained,closeRate,...sales,groupBuyFee,groupBuyRevenue,referralFee:productSales.reduce((sum,s)=>sum+(s.referralFee||0),0),companyRevenue,companyAttributedRevenue,companyRoas:spend?Math.round(companyAttributedRevenue/spend*100):null,companyMer:spend?Math.round(companyRevenue/spend*100):null,backgroundRevenue:companyRevenue-revenue,companyMrr,companyArr:companyMrr*12,productSales,
+  return{funding:{...funding,settledFromRevenue,nextBudget:funding.mode==='cash'?Math.max(0,funding.availableBudget+companyRevenue-spend):b.budgetPolicy?funding.baseBudget+Math.floor(companyRevenue*funding.reinvestmentRate):plan.budget,nextRecommendedBudget:funding.baseBudget+Math.floor(companyRevenue*funding.reinvestmentRate)},strategy:{...strategy,next:undefined},creativeWorkHours:summary.creativeWorkHours,creativeRefreshes:summary.creativeRefreshes,adCpc:performanceVisits?Math.round(performanceSpend/performanceVisits):null,assetVisits,brandVisits,blogNewVisits,blogReturningVisits,blogOrganicVisits,performanceVisits,organicShare:visits?organicVisits/visits:0,organicReadiness:rounded(strategy.foundation*100),workHours:summary.workHours,teamCapacity:summary.teamCapacity,ownedPublished:summary.ownedPublished,expectedPlacements:rounded(channels.find(c=>c.id==='influencer-seeding')?.placements||0),seedingAttempts:channels.find(c=>c.id==='influencer-seeding')?.units||0,awarenessLoss:rounded(brand.awarenessLoss),ownedRetention,paidRetention,month:m.month+1,budget:funding.availableBudget,spend,unallocated:funding.availableBudget-spend+settledFromRevenue,marketingVisits,organicVisits,referralVisits,referralConversionRate,visits,leadRate,leads,retentionRate,retained,closeRate,...sales,groupBuyFee,groupBuyRevenue,referralFee:productSales.reduce((sum,s)=>sum+(s.referralFee||0),0),companyRevenue,companyAttributedRevenue,companyRoas:spend?Math.round(companyAttributedRevenue/spend*100):null,companyMer:spend?Math.round(companyRevenue/spend*100):null,backgroundRevenue:companyRevenue-revenue,companyMrr,companyArr:companyMrr*12,productSales,
     roas:spend?Math.round(attributedRevenue/spend*100):null,mer:spend?Math.round(revenue/spend*100):null,performanceRoas:performanceSpend?Math.round(performanceRevenue/performanceSpend*100):null,
     cpa:demandOrders?Math.round(spend/demandOrders):null,cpc:marketingVisits?Math.round(spend/marketingVisits):null,priceLeadMultiplier:priceLead,priceCloseMultiplier:priceClose,channels,memoryAfter,narrative};
 }

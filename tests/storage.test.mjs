@@ -149,3 +149,12 @@ test('cash ledger, recommendations and zero-cash passes restore without changing
  try{const loaded=loadGame('cash');assert.deepEqual(loaded.business.budgetPolicy,DEFAULT_BUDGET_POLICY);assert.deepEqual(loaded.history,JSON.parse(JSON.stringify(state.history)));const memory=memoryForHistory(loaded.history,initialMemory());assert.equal(memory.cumulativeSpend,36000000);assert.equal(memory.cumulativeRevenue,0);}finally{globalThis.localStorage=old;}
  const bad=structuredClone(state);bad.history[1].memoryAfter.cumulativeSpend=-1;assert.equal(validState(bad),false);
 });
+
+test('the organic blog audience survives browser reload and malformed audience state fails validation',async()=>{
+ const{simulate}=await import('../simulation.mjs');const{initialPlan,initialMemory}=await import('../model.mjs');
+ const business={id:'b',name:'블로그 재방문',industry:'commerce',market:'B2C',audience:''},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''},memory={...initialMemory(),awareness:60,trust:60,organicAssets:200,contentPublished:{p:{owned:80,experience:40,press:40,power:20,seeding:20}}};
+ const r=simulate({business,product,plan:initialPlan(),memory,stage:1,round:1}),state={...newState(),business,products:[product],productId:'p',history:[r]};assert.ok(r.memoryAfter.blogAudience>0);assert.equal(validState(state),true);
+ const original=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
+ try{const saved=loadGame('blog-audience');assert.equal(saved.history[0].memoryAfter.blogAudience,r.memoryAfter.blogAudience);assert.equal(saved.history[0].metrics.blogNewVisits,r.metrics.blogNewVisits);const next=simulate({business,product,plan:initialPlan(),memory:saved.history[0].memoryAfter,stage:1,round:2});assert.ok(next.metrics.blogReturningVisits>0);}finally{globalThis.localStorage=original;}
+ const bad=structuredClone(state);bad.history[0].memoryAfter.blogAudience=-1;assert.equal(validState(bad),false);
+});

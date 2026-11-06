@@ -17,19 +17,22 @@ export function brandGrowth({memory,ownedRetention,paidRetention,awarenessGain,o
  const a=grow(baseAwareness,awarenessGain-paidSnsAwarenessGain,paidSnsAwarenessGain),t=grow(baseTrust,trustGain-paidSnsTrustGain,paidSnsTrustGain);
  return{awareness:a.value,trust:t.value,ownedAwareness:(rawAwareness?rawOwned*baseAwareness/rawAwareness:0)+ownedAwarenessGain*a.contentScale,awarenessLoss:memory.awareness-baseAwareness,awarenessContentScale:a.contentScale,awarenessPaidScale:a.paidScale,trustContentScale:t.contentScale,trustPaidScale:t.paidScale};
 }
-export const STRATEGY_RULES={seedingAwareness:20,seedingTrust:25,highSeedingAwareness:25,highSeedingTrust:35,hourValue:25000,blogTarget:100,adBlogMinimum:20,snsTarget:20};
+export const BLOG_ASSET_WEIGHTS={owned:1,experience:.65,press:.35,power:1.2,seeding:.25};
+export const BLOG_CHANNEL_IDS=Object.keys(BLOG_ASSET_WEIGHTS);
+export const BLOG_AUDIENCE_RULES={monthlyRetention:.9,loyaltyRate:.2};
+export const STRATEGY_RULES={seedingAwareness:20,seedingTrust:25,highSeedingAwareness:25,highSeedingTrust:35,hourValue:25000,blogTarget:200,adBlogMinimum:20,snsTarget:20};
 export function contentFoundation(memory){
  const totals={};for(const row of Object.values(memory.contentPublished||{}))for(const[id,n]of Object.entries(row))totals[id]=(totals[id]||0)+n;
- const blogCount=totals.owned||0,snsCount=(totals['owned-sns']||0)+(totals['owned-shortform']||0);
+ const ownedBlogCount=totals.owned||0,blogCount=BLOG_CHANNEL_IDS.reduce((sum,id)=>sum+(totals[id]||0),0),snsCount=(totals['owned-sns']||0)+(totals['owned-shortform']||0);
  const blogReady=blogCount>=STRATEGY_RULES.blogTarget,blogReadiness=clamp(blogCount/STRATEGY_RULES.blogTarget),snsReadiness=clamp(snsCount/STRATEGY_RULES.snsTarget);
- const otherAssets=(totals.platform||0)*.12+((totals.cafe||0)+(totals.newsletter||0))*.04,snsAssets=snsCount*.04,totalAssets=blogCount+otherAssets+snsAssets;
+ const otherAssets=(totals.platform||0)*.12+((totals.cafe||0)+(totals.newsletter||0))*.04,snsAssets=snsCount*.04,blogAssets=BLOG_CHANNEL_IDS.reduce((sum,id)=>sum+(totals[id]||0)*BLOG_ASSET_WEIGHTS[id],0),totalAssets=blogAssets+otherAssets+snsAssets;
  const maintenance=.35+.65*clamp(memory.organicAssets/Math.max(1,totalAssets));
  // A small blog base opens advertising conversion; a mature blog plus SNS supports full efficiency.
  const blogSupport=blogCount<STRATEGY_RULES.adBlogMinimum?0:.15+.85*clamp((blogCount-STRATEGY_RULES.adBlogMinimum)/(STRATEGY_RULES.blogTarget-STRATEGY_RULES.adBlogMinimum));
  const adConversionMultiplier=blogSupport*(.6+.4*snsReadiness)*maintenance;
  const referralMultiplier=1+(blogReady?1.5*maintenance*clamp(memory.trust/50):0);
- const external=['experience','press','power','seeding','cafe','platform','micro','expert','mega','mega-long','influencer-seeding','insta-review','video-review','group-buy','remember-content'].reduce((sum,id)=>sum+(totals[id]||0),0);
- return{blogCount,snsCount,blogTarget:STRATEGY_RULES.blogTarget,adBlogMinimum:STRATEGY_RULES.adBlogMinimum,blogReady,blogReadiness:round(blogReadiness),snsReadiness:round(snsReadiness),maintenance:round(maintenance),adConversionMultiplier:round(adConversionMultiplier),referralMultiplier:round(referralMultiplier),organicAssetShare:totalAssets?((blogReady?blogCount:0)+otherAssets+snsAssets)/totalAssets:0,brandDemandMultiplier:blogReady?1:Math.max(snsReadiness*.3,clamp(external/30)*.3)};
+ const external=['cafe','platform','micro','expert','mega','mega-long','influencer-seeding','insta-review','video-review','group-buy','remember-content'].reduce((sum,id)=>sum+(totals[id]||0),0);
+ return{blogCount,ownedBlogCount,snsCount,blogTarget:STRATEGY_RULES.blogTarget,adBlogMinimum:STRATEGY_RULES.adBlogMinimum,blogReady,blogReadiness:round(blogReadiness),snsReadiness:round(snsReadiness),maintenance:round(maintenance),adConversionMultiplier:round(adConversionMultiplier),referralMultiplier:round(referralMultiplier),blogAssetShare:totalAssets?blogAssets/totalAssets:0,organicAssetShare:totalAssets?((blogReady?blogAssets:0)+otherAssets+snsAssets)/totalAssets:0,nonBlogBrandMultiplier:Math.max(snsReadiness*.3,clamp(external/30)*.3),brandDemandMultiplier:blogReady?1:Math.max(snsReadiness*.3,clamp(external/30)*.3)};
 }
 export function productProfile(product,referencePrice=100000){
  const involvement=product.involvement??(product.purchaseType==='service'||product.price>=referencePrice*3?'high':'low');
@@ -61,8 +64,8 @@ export function growthStrategy(product,memory,channels,referencePrice){
  const warnings=[];
  if(memory.awareness>=BRAND_RULES.contentCap||memory.trust>=BRAND_RULES.contentCap)warnings.push('콘텐츠·온드 SNS·광고로 높일 수 있는 인지도·신뢰는 70점까지예요. 마이크로·메가 유료 SNS 협업으로 상한을 넘어 90점 이상을 목표로 하세요.');
  if(channels.some(c=>['mega','mega-long'].includes(c.id))&&!mega.eligible)warnings.push(`메가 협업 불가: 월초 인지도 ${mega.awareness}점·신뢰 ${mega.trust}점이 모두 필요해요. 예산을 늘려도 섭외할 수 없습니다.`);
- if(channels.some(c=>c.id==='owned')&&!content.blogReady)warnings.push(`온드블로그 누적 ${content.blogCount}/${content.blogTarget}편: 100편을 쌓은 다음 달부터 블로그 직접·검색 유입이 열려요. 이번 달 발행분은 다음 달에 반영됩니다.`);
- if(channels.some(c=>c.group==='performance')&&!content.adConversionMultiplier)warnings.push(`광고 방문은 발생하지만 블로그 기반이 없어 광고 구매 전환은 0이에요. 전월까지 온드블로그 ${content.adBlogMinimum}편 이상을 쌓고 SNS를 함께 운영하세요.`);
+ if(channels.some(c=>BLOG_CHANNEL_IDS.includes(c.id))&&!content.blogReady)warnings.push(`전체 블로그 누적 ${content.blogCount}/${content.blogTarget}편: ${content.blogTarget}편을 쌓은 다음 달부터 블로그 직접·검색 유입이 열려요. 이번 달 발행분은 다음 달에 반영됩니다.`);
+ if(channels.some(c=>c.group==='performance')&&!content.adConversionMultiplier)warnings.push(`광고 방문은 발생하지만 블로그 기반이 없어 광고 구매 전환은 0이에요. 전월까지 전체 블로그 ${content.adBlogMinimum}편 이상을 쌓고 SNS를 함께 운영하세요.`);
  else if(channels.some(c=>c.group==='performance')&&content.adConversionMultiplier<.8)warnings.push(`콘텐츠 기반 광고 전환 계수 ${Math.round(content.adConversionMultiplier*100)}%: 블로그 축적·SNS 운영·자산 관리가 필요해요.`);
  if(adShare>.75)warnings.push(`광고 비중 ${Math.round(adShare*100)}%: 당월 유입은 크지만 검색 자산·추천은 쌓이지 않아 장기 효율이 낮아져요.`);
  if(total&&channels.filter(c=>c.id==='owned').reduce((sum,c)=>sum+c.spend+c.workHours*STRATEGY_RULES.hourValue,0)/total>.8&&memory.awareness<20)warnings.push('초기 온드 집중은 유입·매출 회수가 늦어요. 커뮤니티·외부 발행과 DA로 발견되는 접점을 확보하세요.');
