@@ -23,8 +23,8 @@ export function scalePaidPlan(plan,channels,baseBudget,currentBudget){
  const factor=baseBudget>0?currentBudget/baseBudget:1;
  return{...plan,units:Object.fromEntries(Object.entries(plan.units).map(([id,n])=>{
   const c=channels.find(c=>c.id===id),paid=c&&c.ownership!=='owned'&&!c.commissionRate&&id!=='influencer-seeding';
-  const step=c?.group==='performance'?10:1;
-  return[id,paid&&factor!==1?Math.max(0,Math.min(2000,Math.floor(n*factor/step+1e-9)*step)):n];
+  const step=c?.group==='performance'&&!c.maxUnits?10:1;
+  return[id,paid&&factor!==1?Math.max(0,Math.min(c.maxUnits??2000,Math.floor(n*factor/step+1e-9)*step)):n];
  }))};
 }
 // Upgrade active/saved companies; historical snapshots retain their original fixed-budget rules.

@@ -23,7 +23,7 @@ test('ten articles each month produce zero acquisition in M1 through M10, then s
  const rows=project(input({owned:10}),12);assert.ok(rows.slice(0,10).every(m=>m.visits===0&&m.revenue===0));assert.equal(rows[9].memoryAfter.contentPublished.p.owned,100);assert.ok(rows[10].visits>0);assert.equal(rows[10].strategy.content.blogCount,100);
 });
 test('every performance network buys traffic and leads but zero purchases without blog or SNS content',()=>{
- for(const c of CHANNELS.filter(c=>c.group==='performance')){
+ for(const c of CHANNELS.filter(c=>c.group==='performance'&&!['brand-sa','naver-brand'].includes(c.id))){
   const r=input({[c.id]:10});assert.equal(validateCampaign(r),null);
   const m=project(r,1)[0];assert.ok(m.performanceVisits>0);assert.ok(m.leads>0);assert.equal(m.channels[0].estimatedConversionRate,0);assert.equal(m.newOrders,0);assert.equal(m.revenue,0);assert.equal(m.roas,0);assert.equal(m.performanceRoas,0);assert.match(m.narrative,/광고 구매 전환은 0/);
  }

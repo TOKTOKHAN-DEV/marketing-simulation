@@ -3,6 +3,10 @@ import type { BrandRules,ContentFoundation,Industry,Channel,Plan,Memory,Campaign
 export const INDUSTRIES:Industry[];
 export const CHANNELS:Channel[];
 export const AD_IDS:string[];
+export const SEARCH_AD_IDS:string[];
+export function isSearchAd(id:string):boolean;
+export function searchCpcFor(market:string,kind?:string):number;
+export function brandSearchDemand(memory:Memory):number;
 export const CREATIVE_IDS:string[];
 export const GROUP_BUY_COMMISSION:number;
 export const MEDIA_SOURCES:Record<string,{title:string;url:string;basis:string}>;
@@ -11,7 +15,7 @@ export const AD_SOURCES:Record<string,{title:string;url:string;period:string;bas
 export function benchmarkFor(industry:string):{search:number;display:number;social:number;searchUsd:number;socialUsd:number;category:string;mapping:string;fx:number;checkedAt:string;displayBasis:string};
 export const CREATIVE_FACTORS:{click:number[];conversion:number[]};
 export function campaignFor(plan:Plan,id:string):Required<AdCampaign>;
-export function adStateFor(input:{business:Business;product:Product;plan:Plan;memory:Memory},id:string):{settings:Required<AdCampaign>;baseCpc:number;effectiveCpc:number;clickMultiplier:number;conversionMultiplier:number;creativeAge:number;creativeRefreshed:boolean;creativeHours:number;workHours:number;intent:number;quality?:number;campaignType:string};
+export function adStateFor(input:{business:Business;product:Product;plan:Plan;memory:Memory},id:string):{settings:Required<AdCampaign>;baseCpc:number;effectiveCpc:number;clickMultiplier:number;conversionMultiplier:number;creativeAge:number;creativeRefreshed:boolean;creativeHours:number;workHours:number;intent:number;quality?:number;brandDemand?:number;campaignType:string};
 export function clearCreativeActions(plan:Plan):Plan;
 export function initialMemory():Memory;
 export function initialPlan():Plan;

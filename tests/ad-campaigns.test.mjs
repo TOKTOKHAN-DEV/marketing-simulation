@@ -6,7 +6,7 @@ const business={id:'b',name:'광고 실습',industry:'commerce',market:'B2C',aud
 const product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''};
 const input=(patch={})=>({business,product,plan:{...initialPlan(),budget:10000000,units:{display:30},campaigns:{display:{format:'image',refreshMonths:0}}},memory:establishedMemory(),stage:3,...patch});
 test('each performance allocation block spends one million won and existing amounts keep their value',()=>{
- for(const c of CHANNELS.filter(c=>c.group==='performance')){
+ for(const c of CHANNELS.filter(c=>c.group==='performance'&&!['brand-sa','naver-brand'].includes(c.id))){
   const units=nextAllocation(c,0,1),plan={...initialPlan(),units:{[c.id]:units}};
   const first=project(input({plan}),1)[0];assert.equal(first.spend,1000000);assert.ok(first.performanceVisits>0);assert.equal(units/allocationStep(c),1);
   assert.equal(project(input({plan:{...plan,units:{[c.id]:nextAllocation(c,units,1)}}}),1)[0].spend,2000000);
@@ -34,10 +34,10 @@ test('CPC references preserve source USD data and make display estimation explic
 });
 test('industry and ad network change actual purchased clicks under the same spend',()=>{
  const p={...initialPlan(),units:{search:10,social:10,display:10}};
- const retail=project(input({plan:p}),1)[0],saas=project(input({plan:p,business:{...business,industry:'saas'}}),1)[0];
+ const retail=project(input({plan:p}),1)[0],saas=project(input({plan:p,business:{...business,industry:'saas',market:'B2B'}}),1)[0];
  const sa=retail.channels.find(c=>c.id==='search'),da=retail.channels.find(c=>c.id==='display');
  assert.ok(da.visits>sa.visits);assert.ok(retail.channels.find(c=>c.id==='search').visits>saas.channels.find(c=>c.id==='search').visits);
- assert.equal(sa.effectiveCpc,benchmarkFor('commerce').search);assert.equal(da.baseCpc,benchmarkFor('commerce').display);
+ assert.equal(sa.effectiveCpc,5000);assert.equal(da.baseCpc,benchmarkFor('commerce').display);
  assert.equal(retail.performanceVisits,retail.channels.reduce((sum,c)=>sum+c.visits,0));
  assert.equal(retail.spend,3000000);assert.equal(retail.adCpc,Math.round(retail.spend/retail.performanceVisits));
 });
@@ -66,7 +66,7 @@ test('search keyword strategies affect CPC and intent without applying display c
  const plan={...initialPlan(),units:{search:20},campaigns:{search:{keyword:'purchase'}}};const purchase=project(input({plan}),3);
  const broad=project(input({plan:{...plan,campaigns:{search:{keyword:'explore'}}}}),1)[0];
  assert.ok(broad.channels[0].visits>purchase[0].channels[0].visits);assert.ok(broad.closeRate<purchase[0].closeRate);
- assert.deepEqual(purchase.map(m=>m.creativeWorkHours),[0,0,0]);assert.deepEqual(purchase.map(m=>m.workHours),[2,2,2]);assert.deepEqual(purchase.map(m=>m.channels[0].effectiveCpc),Array(3).fill(benchmarkFor('commerce').search));
+ assert.deepEqual(purchase.map(m=>m.creativeWorkHours),[0,0,0]);assert.deepEqual(purchase.map(m=>m.workHours),[2,2,2]);assert.deepEqual(purchase.map(m=>m.channels[0].effectiveCpc),Array(3).fill(5000));
 });
 test('creative memory is product-specific and ages while paused or another product runs',()=>{
  const first=project(input(),1)[0];

@@ -42,7 +42,7 @@ export function seedingEligibility(product,memory,referencePrice){
 export function growthStrategy(product,memory,channels,referencePrice){
  const profile=productProfile(product,referencePrice),gate=seedingEligibility(product,memory,referencePrice),content=contentFoundation(memory),mega=megaEligibility(memory);
  const shares={search:0,display:0,influencer:0,content:0};
- for(const c of channels){const key=c.id==='search'?'search':c.group==='performance'?'display':c.group==='influencer'?'influencer':'content';shares[key]+=c.spend+c.workHours*STRATEGY_RULES.hourValue;}
+ for(const c of channels){const key=['search','brand-sa','naver-brand'].includes(c.id)?'search':c.group==='performance'?'display':c.group==='influencer'?'influencer':'content';shares[key]+=c.spend+c.workHours*STRATEGY_RULES.hourValue;}
  const total=Object.values(shares).reduce((a,b)=>a+b,0);for(const k in shares)shares[k]=total?shares[k]/total:0;
  const previous=memory.strategyStates?.[product.id]??{adPressure:0,concentrationMonths:0,shares:{search:0,display:0,influencer:0,content:0}};
  const adShare=shares.search+shares.display,foundation=clamp(Math.min(memory.awareness/50,memory.trust/50,content.adConversionMultiplier));
