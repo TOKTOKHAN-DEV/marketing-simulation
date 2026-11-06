@@ -245,45 +245,6 @@
       "website": "https://lexviz.co.kr/"
     },
     {
-      "id": "rivera",
-      "name": "리베라",
-      "aliases": [
-        "리베라"
-      ],
-      "kind": "company",
-      "description": "뷰티 브랜드를 위한 AI 퍼포먼스 마케터",
-      "industry": "saas",
-      "market": "B2B",
-      "audience": "기업 고객",
-      "source": "application",
-      "products": [
-        {
-          "id": "rivera:draft-ai-marketer",
-          "name": "뷰티 브랜드 AI 마케팅 도구",
-          "purchaseType": "subscription",
-          "description": "광고 소재 초안·성과 분석·개선 제안을 한곳에서 관리",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 뷰티 브랜드 마케팅 SaaS의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        },
-        {
-          "id": "rivera:draft-setup",
-          "name": "광고 운영 초기 세팅 · 컨설팅",
-          "purchaseType": "service",
-          "description": "브랜드의 광고 계정과 측정 환경을 정비하고 실험 전략을 설계",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 뷰티 브랜드 마케팅 SaaS의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        }
-      ]
-    },
-    {
       "id": "modooshuttle",
       "name": "모두의셔틀",
       "aliases": [
@@ -867,45 +828,6 @@
       "website": "https://event-us.kr/"
     },
     {
-      "id": "gentlecore",
-      "name": "젠틀코어",
-      "aliases": [
-        "젠틀코어"
-      ],
-      "kind": "company",
-      "description": "남성 전용 헤어 제품 및 기능성 화장품",
-      "industry": "beauty",
-      "market": "B2C",
-      "audience": "개인 고객",
-      "source": "application",
-      "products": [
-        {
-          "id": "gentlecore:draft-hair",
-          "name": "남성 헤어 스타일링 제품",
-          "purchaseType": "oneoff",
-          "description": "일상적인 스타일링을 돕는 헤어 왁스·포마드 등의 제품군",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 남성 헤어 · 스킨케어의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        },
-        {
-          "id": "gentlecore:draft-skincare",
-          "name": "남성 스킨케어 제품",
-          "purchaseType": "oneoff",
-          "description": "간편한 피부 관리를 위한 올인원·보습 제품군",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 남성 헤어 · 스킨케어의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        }
-      ]
-    },
-    {
       "id": "contentskick",
       "name": "콘텐츠킥",
       "aliases": [
@@ -1137,119 +1059,6 @@
       "website": "https://ppolo.org/"
     },
     {
-      "id": "soscience",
-      "name": "SoScience",
-      "aliases": [
-        "SoScience"
-      ],
-      "kind": "company",
-      "description": "논문데이터 수집기 및 분석, 보고서 작성 tool",
-      "industry": "saas",
-      "market": "B2B",
-      "audience": "기업 고객",
-      "source": "application",
-      "products": [
-        {
-          "id": "soscience:draft-research",
-          "name": "논문 데이터 수집 · 분석 도구",
-          "purchaseType": "subscription",
-          "description": "연구 주제별 논문 자료를 모으고 비교·분석하는 작업을 지원",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 연구 지원 SaaS의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        },
-        {
-          "id": "soscience:draft-report",
-          "name": "문헌 분석 보고서 작성 지원",
-          "purchaseType": "service",
-          "description": "의뢰 주제에 맞춰 논문 데이터를 정리하고 보고서 초안 작성을 지원",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 연구 지원 SaaS의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        }
-      ]
-    },
-    {
-      "id": "idea-61399d97a9b9",
-      "name": "공시 자동화",
-      "aliases": [],
-      "kind": "idea",
-      "description": "공시 자동호ㅓ",
-      "industry": "other",
-      "market": "B2B",
-      "audience": "기업 고객",
-      "source": "application",
-      "products": [
-        {
-          "id": "idea-61399d97a9b9:draft-automation",
-          "name": "공시 자료 작성 · 검토 도구",
-          "purchaseType": "subscription",
-          "description": "반복되는 공시 자료 정리와 작성 체크리스트를 관리",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 기업 공시 업무 자동화의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        },
-        {
-          "id": "idea-61399d97a9b9:draft-setup",
-          "name": "공시 업무 프로세스 구축",
-          "purchaseType": "service",
-          "description": "기업별 공시 자료 양식과 내부 검토 흐름을 설정",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 기업 공시 업무 자동화의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        }
-      ]
-    },
-    {
-      "id": "idea-0e403d78b32d",
-      "name": "기업의 재무제표 컨버전을 돕는 회계기준 전환 플랫폼입니다.",
-      "aliases": [],
-      "kind": "idea",
-      "description": "기업의 재무제표 컨버전을 돕는 회계기준 전환 플랫폼입니다.",
-      "industry": "saas",
-      "market": "B2B",
-      "audience": "기업 고객",
-      "source": "application",
-      "products": [
-        {
-          "id": "idea-0e403d78b32d:draft-conversion",
-          "name": "재무제표 회계기준 전환 도구",
-          "purchaseType": "subscription",
-          "description": "계정 매핑과 기준별 조정 내역을 관리하는 플랫폼",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 기업 회계기준 전환 SaaS의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        },
-        {
-          "id": "idea-0e403d78b32d:draft-onboarding",
-          "name": "회계기준 전환 초기 구축",
-          "purchaseType": "service",
-          "description": "기업별 계정 체계·조정 규칙과 데이터 연결을 설정",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 기업 회계기준 전환 SaaS의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        }
-      ]
-    },
-    {
       "id": "idea-a36ddcb3b9a0",
       "name": "라이프 시스템 다이어리",
       "aliases": [],
@@ -1319,43 +1128,6 @@
           "availability": "draft",
           "checkedAt": "2026-11-05",
           "draftBasis": "신청 사업 설명과 피부관리 플랫폼의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        }
-      ]
-    },
-    {
-      "id": "idea-e98409e0ff0e",
-      "name": "애도 공간 · 디지털 플랫폼",
-      "aliases": [],
-      "kind": "idea",
-      "description": "사별 이후 남겨진 사람들을 위한 오프라인 애도 공간과 디지털 플랫폼",
-      "industry": "saas",
-      "market": "B2C",
-      "audience": "개인 고객",
-      "source": "application",
-      "products": [
-        {
-          "id": "idea-e98409e0ff0e:draft-space",
-          "name": "애도 공간 이용 프로그램",
-          "purchaseType": "service",
-          "description": "사별 이후 추억을 정리하고 머무를 수 있는 공간 프로그램",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 애도 공간 · 디지털 기록 서비스의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
-          "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
-        },
-        {
-          "id": "idea-e98409e0ff0e:draft-memorial",
-          "name": "온라인 추모 기록 공간",
-          "purchaseType": "subscription",
-          "description": "가족과 기억·사진·글을 보관하고 공유하는 디지털 공간",
-          "price": null,
-          "sourceUrl": null,
-          "availability": "draft",
-          "checkedAt": "2026-11-05",
-          "draftBasis": "신청 사업 설명과 애도 공간 · 디지털 기록 서비스의 일반적인 상품 구성을 바탕으로 만든 초안입니다. 실제 상품명·출시 여부·판매 조건은 확인되지 않았습니다.",
           "priceNote": "초안 상품군입니다. 판매 가격과 계약 단위는 직접 입력하세요."
         }
       ]

@@ -28,6 +28,9 @@ export function buildCatalog(csvText) {
  const grouped=new Map();
  for(const row of records){
   if(row['상태']&&row['상태']!=='확정')continue;
+  // A company name does not imply an operating business. Never publish idea-stage answers.
+  // Filter before grouping so excluded descriptions cannot leak through same-company merges.
+  if((row['창업 단계']||'').trim()==='아이디어 단계')continue;
   const original=(row['팀/회사']||'').trim(),description=(row['아이템·회사 한 줄']||'').trim();
   const isIdea=!original||['없음','미정','준비중','-'].includes(original);
   const lookup=isIdea?null:aliases.get(normalizeName(original));

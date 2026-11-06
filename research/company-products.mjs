@@ -39,7 +39,6 @@ export default [
   product('topping-2','뷰릿토핑 2 단품','oneoff',187000,'https://www.beaurit.net/','VOD를 함께 제공하는 홈마사지 도구','확인 당시 11월 행사 판매가. 행사 종료·옵션에 따라 변동.')
  ]},
  {id:'infinite-monkey',name:'무한원숭이',aliases:[],industry:'education',website:'https://www.infinitemonkey.kr/',products:[]},
- {id:'gentlecore',name:'젠틀코어',aliases:[],industry:'beauty',products:[]},
  {id:'phytolution',name:'파이톨루션',aliases:[],industry:'food',products:[]},
  {id:'dailypay',name:'데일리페이',aliases:[],industry:'professional',website:'https://bigpi.daily-pay.co.kr/company/',products:[product('advance','데일리페이 선정산 서비스','oneoff',null,'https://bigpi.daily-pay.co.kr/company/','온라인 판매자의 정산 전 자금 유동화를 지원','서비스 수수료 매출을 단가로 입력하세요. 선정산 원금은 매출로 넣지 않습니다.')]},
  {id:'eventus',name:'이벤터스',aliases:['EVENTUS'],industry:'saas',website:'https://event-us.kr/',products:[product('event-platform','이벤터스 행사 운영 플랫폼','oneoff',null,'https://event-us.kr/hostcenter/plan','행사 개설·홍보·참가자 관리 솔루션','선택 솔루션·계약에 따른 가격과 판매 단위를 직접 확인하세요.')]},
@@ -54,13 +53,11 @@ export default [
   product('pass','피트니스 기간권','oneoff',null,'https://play.google.com/store/apps/details?id=im.unicon.app&hl=ko','1·3·6개월 등 원하는 기간을 한 번 결제해 이용하는 피트니스 회원권','기간권 전체 판매가를 입력하세요. 기간에 따른 비용·이용 제공의 월별 안분은 하지 않습니다.')
  ]},
  {id:'hklogistics',name:'에이치케이로지스틱스',aliases:['배차킹','HK로지스틱스'],industry:'professional',website:'https://www.baechaking.com/',products:[product('freight','배차킹 화물운송','service',null,'https://www.baechaking.com/','기업용 화물의 배차·운송과 관리','건당 매출 기준과 운영 투입 시간을 직접 설정하세요.')]},
- {id:'soscience',name:'SoScience',aliases:[],industry:'saas',products:[]},
  {id:'swirlx',name:'스월엑스',aliases:['SwirlX','스웰엑스'],industry:'manufacturing',products:[]},
  {id:'lexviz',name:'렉스비즈',aliases:['주식회사 렉스비즈','LexViz'],industry:'saas',website:'https://lexviz.co.kr/',products:[
   product('herelaw','Herelaw','subscription',null,'https://lexviz.co.kr/','사건 기록과 서면 작업을 돕는 법률 업무 AI','공식 제품 소개·베타 안내. 판매 조건과 월 과금은 직접 확인하세요.','introduced'),
   product('court-check','Herelaw Court Check','subscription',null,'https://courtcheck.herelaw.io/about','법원·판사 정보를 정리하는 법률 실무 지원','공식 서비스 확인. 유료 상품과 월 과금 조건은 직접 확인하세요.','introduced')
  ]},
- {id:'rivera',name:'리베라',aliases:[],industry:'saas',products:[]},
  {id:'hostandard',name:'호스탠다드',aliases:['주식회사 호스탠다드','HOSTANDARD'],industry:'professional',website:'https://www.hostandard.kr/',products:[product('turnover','공유숙박 턴오버 운영','service',null,'https://www.hostandard.kr/','숙소의 청소·린넨·비품·완료 확인을 통합 운영','객실별 견적과 건당 운영 시간을 직접 입력하세요.')]},
  {id:'fairit',name:'페어릿',aliases:['Fairit  페어릿','Fairit','Fairit 페어릿'],industry:'travel',products:[]},
  {id:'autonavi',name:'오토내비',aliases:['AutoNavi'],industry:'saas',website:'https://autonavi.co.kr/',products:[product('autonavi-paid','오토내비 유료 플랜','subscription',null,'https://autonavi.co.kr/','배달앱의 주소를 지도앱 길안내로 자동 연결','유료 플랜은 공식 확인. 가격과 결제 주기는 직접 확인하세요.') ]},
