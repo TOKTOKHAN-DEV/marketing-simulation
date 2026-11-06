@@ -103,6 +103,10 @@ button:focus-visible,a:focus-visible{outline:2px solid #e1cd9c;outline-offset:4p
 .stepper{border-color:#69735b;background:#323e32}
 .stepper>button{height:34px;width:30px}
 .stepper>span{font-family:inherit}
+.stepper>input{width:64px;min-width:0;height:34px;padding:0 4px;border:0;border-radius:0;background:#252f29;color:#e0e8cd;text-align:center;font:inherit;font-size:12px;appearance:textfield;-moz-appearance:textfield}
+.stepper>input::-webkit-inner-spin-button,.stepper>input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.stepper>input:focus-visible{outline:2px solid #c9dda1;outline-offset:-2px}
+.stepper>input:disabled{opacity:.5}
 .dialog-overlay{background:#080b17bf;backdrop-filter:blur(2px)}
 .dialog-content{background:#222839;border:2px solid #8d839b;border-radius:0;box-shadow:7px 7px 0 #050914;padding:27px;scrollbar-color:#77738b #272b3b}
 .dialog-heading{border-color:#4a4b61}

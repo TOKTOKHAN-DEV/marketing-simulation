@@ -57,6 +57,7 @@ export const seedingRate=mode=>({gift:.01,paid:.1,referral:.01}[mode]??.01);
 // New allocations use ten accounting units per 1,000,000-won block.
 export const allocationStep=channel=>channel.group==='performance'&&!channel.maxUnits?10:1;
 export function nextAllocation(channel,current,direction){
+ if(channel.id==='influencer-seeding')return Math.max(0,Math.min(channel.maxUnits??2000,current+(direction>0?100:-100)));
  const step=allocationStep(channel);
  return Math.max(0,Math.min(channel.maxUnits??2000,(direction>0?Math.floor(current/step)+1:Math.ceil(current/step)-1)*step));
 }
