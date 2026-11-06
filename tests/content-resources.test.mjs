@@ -1,19 +1,20 @@
+import {establishedMemory} from './content-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initialMemory,initialPlan,project,validateCampaign,planSummary,projectMonthly,outlookPlans,calculateSales,CHANNELS,teamFor} from '../model.mjs';
 const business={id:'b',name:'브랜드',industry:'commerce',market:'B2C',audience:'소비자'};
 const product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:'',canSponsor:true,sponsorshipCost:9000};
-const warm={...initialMemory(),awareness:30,trust:40,advocacy:28};
+const warm=establishedMemory({awareness:30,trust:40,advocacy:28});
 const input=(patch={})=>({business,product,plan:{...initialPlan(),units:{owned:10}},memory:initialMemory(),stage:3,...patch});
 test('owned-only month runs with no incremental cash and a finite workload, never infinite ROAS',()=>{
  const r=input({plan:{...initialPlan(),budget:0,units:{owned:10}}});assert.equal(validateCampaign(r),null);
- const m=project(r,1)[0];assert.equal(m.spend,0);assert.equal(m.workHours,40);assert.equal(m.ownedPublished,10);assert.equal(m.roas,null);assert.ok(m.marketingVisits>0);
+ const m=project(r,1)[0];assert.equal(m.spend,0);assert.equal(m.workHours,40);assert.equal(m.ownedPublished,10);assert.equal(m.roas,null);assert.equal(m.marketingVisits,0);assert.equal(m.visits,0);
 });
 test('each monthly plan executes its own quantity and preserves search assets between months',()=>{
  const plans=[{...initialPlan(),units:{owned:10}},{...initialPlan(),units:{owned:0}},{...initialPlan(),units:{owned:4}}];
  const months=projectMonthly(input(),plans);
  assert.deepEqual(months.map(m=>m.ownedPublished),[10,0,4]);assert.deepEqual(months.map(m=>m.workHours),[40,0,16]);
- assert.ok(months[1].organicVisits>0);assert.ok(months[1].memoryAfter.organicAssets<months[0].memoryAfter.organicAssets);
+ assert.equal(months[1].organicVisits,0);assert.ok(months[1].memoryAfter.organicAssets<months[0].memoryAfter.organicAssets);
  assert.ok(months[2].memoryAfter.organicAssets>months[1].memoryAfter.organicAssets);
 });
 test('legacy publication cadence no longer suppresses the new monthly quantity',()=>{
@@ -34,7 +35,7 @@ test('marketer capacity gates publishing, and proficiency changes production tim
  assert.match(validateCampaign(input({business:{...business,marketingTeam:team}})),/가용 시간/);
  const starter=project(input({business:{...business,marketingTeam:{...team,hoursPerPerson:120,performance:'starter'}}}),1)[0];
  const expert=project(input({business:{...business,marketingTeam:{...team,hoursPerPerson:120,performance:'expert'}}}),1)[0];
- assert.ok(expert.workHours<starter.workHours);assert.ok(expert.marketingVisits>starter.marketingVisits);assert.equal(expert.spend,0);
+ assert.ok(expert.workHours<starter.workHours);assert.equal(expert.marketingVisits,0);assert.equal(starter.marketingVisits,0);assert.ok(expert.memoryAfter.organicAssets>starter.memoryAfter.organicAssets);assert.equal(expert.spend,0);
  assert.match(validateCampaign(input({business:{...business,marketingTeam:{...team,headcount:0}}})),/가용 时间|가용 시간/);
 });
 test('ten gift seeding contacts are less than one expected publication, using internal outreach time and accepted gifts only',()=>{
@@ -89,7 +90,7 @@ test('performance ads generate traffic and small DA awareness without creating s
 });
 test('owned groundwork protects more revenue after ads stop than ads alone',()=>{
  const owned={...initialPlan(),units:{owned:10}},ads={...initialPlan(),units:{search:20}},stop={...initialPlan(),units:{}};
- const prepared=projectMonthly(input({memory:{...initialMemory(),awareness:20,trust:30}}),[owned,owned,owned,ads,stop,stop]);
+ const prepared=projectMonthly(input({memory:establishedMemory({awareness:20,trust:30})}),[owned,owned,owned,ads,stop,stop]);
  const unprepared=projectMonthly(input(),[ads,ads,ads,ads,stop,stop]);
  assert.equal(prepared[4].performanceVisits,0);assert.equal(unprepared[4].performanceVisits,0);
  assert.ok(prepared[4].organicVisits>unprepared[4].organicVisits);assert.ok(prepared[4].revenue>unprepared[4].revenue);

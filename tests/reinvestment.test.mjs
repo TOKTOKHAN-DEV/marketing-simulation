@@ -1,3 +1,4 @@
+import {establishedMemory} from './content-fixtures.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {initialMemory,initialPlan,project,projectMonthly,outlookPlans,validateCampaign}from'../model.mjs';
 import {DEFAULT_BUDGET_POLICY,budgetFor,memoryForHistory,enableReinvestment}from'../funding.mjs';
@@ -5,7 +6,7 @@ import {simulate}from'../simulation.mjs';import {previewRevision,revisionPayload
 import {saveBusinessState,activateBusiness,businessKey}from'../business-state.mjs';
 const business={id:'b',name:'재투자 회사',industry:'commerce',market:'B2C',audience:'',budgetPolicy:{...DEFAULT_BUDGET_POLICY}};
 const product={id:'p',businessId:'b',name:'대표 상품',price:30000,purchaseType:'oneoff',value:'',involvement:'low'};
-const input=(units={display:50},patch={})=>({business,product,products:[product],plan:{...initialPlan(),units},memory:initialMemory(),stage:1,round:1,...patch});
+const input=(units={display:50},patch={})=>({business,product,products:[product],plan:{...initialPlan(),units},memory:establishedMemory(),stage:1,round:1,...patch});
 test('the default monthly starting budget is five million won and revenue is reinvested once, in the next month',()=>{
  assert.equal(initialPlan().budget,5000000);const first=project(input(),1)[0];assert.equal(first.budget,5000000);assert.equal(first.funding.previousRevenue,0);assert.equal(first.funding.reinvestmentAmount,0);assert.equal(first.memoryAfter.lastRevenue,first.companyRevenue);assert.equal(first.funding.nextBudget,5000000+Math.floor(first.companyRevenue*.4));
  const next=project(input({display:50},{memory:JSON.parse(JSON.stringify(first.memoryAfter))}),1)[0];assert.equal(next.budget,first.funding.nextBudget);assert.ok(next.budget>first.budget);assert.equal(next.spend,5000000);assert.equal(next.unallocated,next.budget-next.spend);
@@ -33,7 +34,7 @@ test('future previews expand paid allocation with available funding, while keepi
  const plans=outlookPlans(plan,[{owned:5,adPercent:100},{owned:3,adPercent:50},{owned:0,adPercent:0}]);const monthly=projectMonthly(input(plan.units,{plan}),plans);assert.equal(monthly[1].channels.find(c=>c.id==='owned').units,3);assert.equal(monthly[2].performanceVisits,0);assert.equal(monthly[2].funding.previousRevenue,monthly[1].companyRevenue);
 });
 test('editing an early month recalculates subsequent budgets but preserves their chosen media quantities',()=>{
- let memory=initialMemory();const history=Array.from({length:4},()=>{const r=simulate(input({display:20},{memory,round:memory.month+1}));memory=r.memoryAfter;return r;});
+ let memory=establishedMemory();const history=Array.from({length:4},()=>{const r=simulate(input({display:20},{memory,round:memory.month+1}));memory=r.memoryAfter;return r;});
  const result=previewRevision(history,{[history[0].id]:{...history[0].plan,units:{display:40}}});assert.equal(result.error,null);assert.ok(result.history[1].metrics.budget>history[1].metrics.budget);assert.deepEqual(result.history[1].plan,history[1].plan);assert.equal(result.history[1].metrics.channels.find(c=>c.id==='display').units,20);
  assert.deepEqual(revisionPayload(history,{[history[0].id]:{...history[0].plan,units:{display:40}}}).records[0].businessSnapshot.budgetPolicy,DEFAULT_BUDGET_POLICY);
  const shrinking=previewRevision(history,{[history[0].id]:{...history[0].plan,units:{display:0}}});assert.equal(shrinking.history[1].metrics.budget,5000000);

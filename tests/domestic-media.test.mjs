@@ -1,3 +1,4 @@
+import {establishedMemory} from './content-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CHANNELS,MEDIA_SOURCES,CREATIVE_IDS,initialMemory,initialPlan,project,projectMonthly,validateCampaign,calculateSales,campaignFor,clearCreativeActions} from '../model.mjs';
@@ -29,10 +30,10 @@ test('platform format constraints reject unsupported creatives on the server',()
 });
 test('B2B media and local media have product and industry fit rather than universally better conversion',()=>{
  for(const id of ['linkedin','remember']){
-  const consumer=project(input({[id]:10}),1)[0],b2b=project(input({[id]:10},{business:{...business,market:'B2B'}}),1)[0];
+  const consumer=project(input({[id]:10},{memory:establishedMemory()}),1)[0],b2b=project(input({[id]:10},{memory:establishedMemory(),business:{...business,market:'B2B'}}),1)[0];
   assert.equal(consumer.spend,b2b.spend);assert.equal(consumer.performanceVisits,b2b.performanceVisits);assert.ok(b2b.closeRate>consumer.closeRate);
  }
- const local=project(input({daangn:10},{business:{...business,industry:'food'}}),1)[0],industrial=project(input({daangn:10},{business:{...business,industry:'manufacturing',market:'B2B'}}),1)[0];assert.ok(local.closeRate>industrial.closeRate);
+ const local=project(input({daangn:10},{memory:establishedMemory(),business:{...business,industry:'food'}}),1)[0],industrial=project(input({daangn:10},{memory:establishedMemory(),business:{...business,industry:'manufacturing',market:'B2B'}}),1)[0];assert.ok(local.closeRate>industrial.closeRate);
 });
 test('owned SNS, shortform and CRM consume real marketer time and build assets without cash',()=>{
  const m=project(input({'owned-sns':2,'owned-shortform':2,newsletter:2}),1)[0];assert.equal(m.spend,0);assert.equal(m.workHours,28);assert.equal(m.ownedPublished,6);assert.ok(m.memoryAfter.organicAssets>0);
@@ -49,7 +50,7 @@ test('booked influencer trials charge publication and product costs separately f
 test('group buying pays exactly 25 percent of its new revenue and counts fees against budget and ROAS',()=>{
  const r=input({'group-buy':1}),m=project(r,1)[0];assert.equal(validateCampaign(r),null);assert.ok(m.revenue>0);assert.equal(m.groupBuyRevenue,m.revenue);assert.equal(m.groupBuyFee,m.revenue*.25);assert.equal(m.spend,m.groupBuyFee);assert.equal(m.channels[0].spend,m.groupBuyFee);assert.equal(m.roas,400);assert.equal(m.workHours,6);
  assert.match(validateCampaign({...r,plan:{...r.plan,budget:m.groupBuyFee-1}}),/예산/);
- const mixed=project(input({'group-buy':1,display:10}),1)[0];assert.ok(mixed.groupBuyRevenue<mixed.revenue);assert.ok(Math.abs(mixed.groupBuyFee-mixed.groupBuyRevenue*.25)<=1);assert.equal(mixed.spend,1000000+mixed.groupBuyFee);
+ const mixed=project(input({'group-buy':1,display:10},{memory:establishedMemory()}),1)[0];assert.ok(mixed.groupBuyRevenue<mixed.revenue);assert.ok(Math.abs(mixed.groupBuyFee-mixed.groupBuyRevenue*.25)<=1);assert.equal(mixed.spend,1000000+mixed.groupBuyFee);
  assert.equal(project(input({}),1)[0].groupBuyFee,0);
 });
 test('subscription renewals and normal repurchases are excluded from group-buy fees',()=>{

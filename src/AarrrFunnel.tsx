@@ -31,7 +31,7 @@ export default function AarrrFunnel({metrics:m,preview=false}:{metrics?:Metrics;
       <div className="funnel-counts">{steps.map(s=><div key={s.name}><strong>{number(s.count)}<small>{s.unit}</small></strong></div>)}</div>
       <div className="funnel-details">{steps.map(s=><span key={s.name}>{s.detail}</span>)}</div>
     </div></div>
-    <div className="funnel-branches"><div><Users size={15}/><span><b>R · Referral</b> 추천 유입 {number(m?.referralVisits||0)}명</span><small><ArrowUpRight size={12}/>이번 달 전체 방문에 포함</small></div><div><ArrowDownLeft size={15}/><span>인식 매출 <b>{won(m?.revenue||0)}</b></span><small>{m?.salesModel==='service'?`완료 ${number(m.newOrders)}건 · 대기 ${number(m.serviceBacklog||0)}건`:m?.salesModel==='subscription'?`활성 구독 ${number(m.activeSubscribers||0)}명 · 갱신 포함`:'신규 판매 + 재구매'}</small></div></div>
+    <div className="funnel-branches"><div><Users size={15}/><span><b>R · Referral</b> 추천 유입 {number(m?.referralVisits||0)}명</span><small><ArrowUpRight size={12}/>{m?.referralConversionRate!==undefined?`추천 → 신규 구매 예상 ${pct(m.referralConversionRate,true)}`:'이번 달 전체 방문에 포함'}</small></div><div><ArrowDownLeft size={15}/><span>인식 매출 <b>{won(m?.revenue||0)}</b></span><small>{m?.salesModel==='service'?`완료 ${number(m.newOrders)}건 · 대기 ${number(m.serviceBacklog||0)}건`:m?.salesModel==='subscription'?`활성 구독 ${number(m.activeSubscribers||0)}명 · 갱신 포함`:'신규 판매 + 재구매'}</small></div></div>
     <p className="funnel-footnote">띠 두께는 가독성을 위해 제곱근 비율로 표시합니다. 추천 유입은 구매의 필수 단계가 아닌 추가 유입 경로예요.</p>
   </section>;
 }

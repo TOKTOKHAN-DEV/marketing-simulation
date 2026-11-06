@@ -1,9 +1,10 @@
+import {establishedMemory} from './content-fixtures.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {benchmarkFor,AD_SOURCES,CHANNELS,allocationStep,nextAllocation,recommendMix,initialPlan,initialMemory,project,projectMonthly,outlookPlans,validateCampaign,clearCreativeActions} from '../model.mjs';
 import {scalePaidPlan} from '../funding.mjs';
 const business={id:'b',name:'광고 실습',industry:'commerce',market:'B2C',audience:''};
 const product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''};
-const input=(patch={})=>({business,product,plan:{...initialPlan(),budget:10000000,units:{display:30},campaigns:{display:{format:'image',refreshMonths:0}}},memory:initialMemory(),stage:3,...patch});
+const input=(patch={})=>({business,product,plan:{...initialPlan(),budget:10000000,units:{display:30},campaigns:{display:{format:'image',refreshMonths:0}}},memory:establishedMemory(),stage:3,...patch});
 test('each performance allocation block spends one million won and existing amounts keep their value',()=>{
  for(const c of CHANNELS.filter(c=>c.group==='performance')){
   const units=nextAllocation(c,0,1),plan={...initialPlan(),units:{[c.id]:units}};

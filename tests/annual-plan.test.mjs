@@ -1,3 +1,4 @@
+import {establishedMemory} from './content-fixtures.mjs';
 import test from'node:test';import assert from'node:assert/strict';
 import{annualPlan,fillAnnualPlans,PLAN_MONTHS}from'../annual.mjs';import{initialPlan,initialMemory,project,validateCampaign}from'../model.mjs';import{simulate}from'../simulation.mjs';import{deleteProduct,restoreProduct,saveBusinessState,activateBusiness,businessKey}from'../business-state.mjs';
 const business={id:'b',name:'연간 계획',industry:'commerce',market:'B2C',audience:'',budgetPolicy:{baseBudget:5000000,reinvestmentRate:.4}};
@@ -19,8 +20,9 @@ test('executed results remain exact while future drafts use the actual latest cu
  assert.equal(year.entries[0].metrics,first.metrics);assert.equal(year.entries[0].status,'executed');assert.equal(year.nextMonth,2);assert.equal(year.entries[1].metrics.funding.previousRevenue,first.metrics.companyRevenue);assert.equal(year.entries[1].memoryBefore.awareness,first.memoryAfter.awareness);
 });
 test('copying a mix fills only empty future months, scales paid allocations and leaves explicit saved plans intact',()=>{
- const source=input({monthlyPlans:{1:slot({display:50,owned:5}),4:slot({cafe:3})}}),before=structuredClone(source);
- const plans=fillAnnualPlans(source,1,source.monthlyPlans[1]);assert.deepEqual(source,before);assert.equal(Object.keys(plans).length,12);assert.deepEqual(plans[4],source.monthlyPlans[4]);assert.ok(plans[2].plan.units.display>50);assert.equal(plans[2].plan.units.owned,5);assert.ok(!Object.hasOwn(plans,13));assert.equal(Object.keys(fillAnnualPlans(source,13,source.monthlyPlans[1])).length,2);
+ const first=simulate({business,product,products:[product],plan:initialPlan(),memory:establishedMemory(),stage:1,round:1});
+ const source=input({history:[first],monthlyPlans:{2:slot({display:50,owned:5}),4:slot({cafe:3})}}),before=structuredClone(source);
+ const plans=fillAnnualPlans(source,2,source.monthlyPlans[2]);assert.deepEqual(source,before);assert.equal(Object.keys(plans).length,11);assert.deepEqual(plans[4],source.monthlyPlans[4]);assert.ok(plans[3].plan.units.display>50);assert.equal(plans[3].plan.units.owned,5);assert.ok(!Object.hasOwn(plans,13));assert.equal(Object.keys(fillAnnualPlans(source,13,source.monthlyPlans[2])).length,2);
 });
 test('execution stops at M12 but the complete annual result and historical records remain available',()=>{
  let memory=initialMemory();const history=[];

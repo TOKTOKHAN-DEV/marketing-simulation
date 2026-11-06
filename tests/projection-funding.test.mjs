@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import{readFileSync}from'node:fs';import ts from'typescript';import{project,initialPlan,initialMemory}from'../model.mjs';
+import{establishedMemory}from'./content-fixtures.mjs';
 const file=readFileSync(new URL('../src/Projection.tsx',import.meta.url),'utf8'),source=file.slice(file.indexOf('export function csvFor'));
 const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const{csvFor}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
@@ -11,4 +12,9 @@ test('CSV includes group-buy revenue, its 25 percent fee and additional ad chann
  const business={id:'b',name:'공구 매출 전망',industry:'commerce',market:'B2C',audience:''},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''};
  const [m]=project({business,product,plan:{...initialPlan(),units:{tiktok:10,'group-buy':1}},memory:initialMemory(),stage:1},1),[header,row]=csvFor([m]).replace(/^\uFEFF/,'').split('\r\n').map(line=>line.split(','));
  assert.equal(header.length,row.length);assert.equal(Number(row[header.indexOf('공구귀속매출')]),m.groupBuyRevenue);assert.equal(Number(row[header.indexOf('공구수수료')]),m.groupBuyFee);assert.match(row[header.indexOf('추가광고채널')],/틱톡.*집행 1000000/);
+});
+test('CSV exports the same month-start article counts, content support and referral conversion as the funnel',()=>{
+ const business={id:'b',name:'추천 전환',industry:'commerce',market:'B2C',audience:''},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''},memory=establishedMemory({awareness:70,trust:70,advocacy:60,customers:1000,productCustomers:{p:1000}});
+ const [m]=project({business,product,plan:{...initialPlan(),units:{display:10}},memory,stage:1},1),[header,row]=csvFor([m]).replace(/^\uFEFF/,'').split('\r\n').map(line=>line.split(',')),read=key=>Number(row[header.indexOf(key)]);
+ assert.equal(read('월초온드블로그누적'),100);assert.equal(read('월초온드SNS누적'),20);assert.equal(read('콘텐츠기반광고전환계수'),m.strategy.content.adConversionMultiplier);assert.equal(read('추천전환보너스'),m.strategy.content.referralMultiplier);assert.equal(read('추천방문구매전환율'),m.referralConversionRate);assert.ok(m.referralConversionRate>0);
 });

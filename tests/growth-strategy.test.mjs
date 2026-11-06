@@ -1,3 +1,4 @@
+import {establishedMemory} from './content-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initialMemory,initialPlan,project,validateCampaign,recommendMix,planSummary,seedingEligibility} from '../model.mjs';
@@ -24,17 +25,13 @@ test('both awareness and trust are required at the start of the month; high cons
  const paid=project(input({micro:1}),1)[0];assert.ok(paid.marketingVisits>0); // Buying a placement is distinct from cold seeding.
 });
 test('SA brand awareness bonus raises SA conversion without manufacturing clicks or boosting unrelated DA cohorts',()=>{
- const low=project(input({search:10,display:10},{memory:{...initialMemory(),trust:40,awareness:5}}),1)[0];
- const high=project(input({search:10,display:10},{memory:{...initialMemory(),trust:40,awareness:75}}),1)[0];
+ const low=project(input({search:10,display:10},{memory:establishedMemory({trust:40,awareness:5})}),1)[0];
+ const high=project(input({search:10,display:10},{memory:establishedMemory({trust:40,awareness:75})}),1)[0];
  const sa=m=>m.channels.find(c=>c.id==='search'),da=m=>m.channels.find(c=>c.id==='display');
  assert.equal(sa(low).visits,sa(high).visits);assert.ok(sa(high).estimatedConversionRate>sa(low).estimatedConversionRate);assert.equal(da(low).estimatedConversionRate,da(high).estimatedConversionRate);assert.ok(high.strategy.searchBrandMultiplier>low.strategy.searchBrandMultiplier);
 });
-test('DA-heavy reference scenario starts near 200 percent ROAS and tends toward 100 despite fresh creatives',()=>{
- const rows=run({display:30});assert.ok(rows[0].roas>=185&&rows[0].roas<=215);assert.ok(rows[11].roas>=85&&rows[11].roas<=115);
- assert.equal(rows[0].performanceVisits,rows[11].performanceVisits);assert.ok(rows[11].closeRate<rows[0].closeRate);
- assert.ok(rows.every(m=>m.repeatOrders===0&&m.referralVisits===0&&m.organicVisits===0));
- assert.ok(rows.every(m=>m.channels[0].creativeAge===0));assert.equal(rows[11].strategy.adMultiplier,.5);
- for(let i=1;i<rows.length;i++)assert.ok(rows[i].roas<=rows[i-1].roas);
+test('DA-only startup buys visits but has zero ROAS without blog content, despite fresh creatives',()=>{
+ const rows=run({display:30});assert.ok(rows.every(m=>m.roas===0&&m.newOrders===0));assert.equal(rows[0].performanceVisits,rows[11].performanceVisits);assert.ok(rows.every(m=>m.repeatOrders===0&&m.referralVisits===0&&m.organicVisits===0));assert.ok(rows.every(m=>m.channels[0].creativeAge===0));assert.equal(rows[11].strategy.adMultiplier,.5);
 });
 test('performance maximizes immediate traffic while cold owned builds assets with a delayed return',()=>{
  const ads=run({display:30}),owned=run({owned:20});
@@ -56,8 +53,8 @@ test('one-sided strategies generate a review signal after two months without arb
  assert.equal(validateCampaign(input({search:1,'influencer-seeding':10})),null);
 });
 test('product consideration and repurchase eligibility change the economic outcome; subscriptions keep their explicit renewal terms',()=>{
- const low=project(input({display:20}),1)[0],high=project(input({display:20},{product:{...product,involvement:'high'}}),1)[0];assert.ok(high.newOrders<low.newOrders);
- const memory={...initialMemory(),awareness:65,trust:70,advocacy:50,productCustomers:{p:100},customers:100};
+ const low=project(input({display:20},{memory:establishedMemory()}),1)[0],high=project(input({display:20},{memory:establishedMemory(),product:{...product,involvement:'high'}}),1)[0];assert.ok(high.newOrders<low.newOrders);
+ const memory=establishedMemory({awareness:65,trust:70,advocacy:50,productCustomers:{p:100},customers:100});
  const repeat=project(input({},{memory}),1)[0],single=project(input({},{memory,product:{...product,repurchasePossible:false}}),1)[0];assert.equal(repeat.repeatOrders,8);assert.equal(single.repeatOrders,0);
  const sub=project(input({},{memory,product:{...product,purchaseType:'subscription',churnRate:5,repurchasePossible:false}}),1)[0];assert.equal(sub.retainedSubscribers,95);
  const trustHigh=project(input({display:20},{memory,product:{...product,involvement:'high'}}),1)[0];assert.ok(trustHigh.closeRate>high.closeRate);
@@ -90,7 +87,7 @@ test('recommendations account for video creative workload and proficiency when a
 test('phased mix gives up some early traffic but builds organic, referrals and repeat revenue over twelve months',()=>{
  const ads=run({display:30});let memory=initialMemory();const mixed=[];
  for(let i=0;i<12;i++){const units=recommendMix(1,3000000,business,product,memory),m=project(input(units,{memory}),1)[0];mixed.push(m);memory=m.memoryAfter;}
- assert.ok(ads[0].visits>mixed[0].visits);assert.ok(ads[0].revenue>mixed[0].revenue);
+ assert.ok(ads[0].visits>mixed[0].visits);assert.equal(ads[0].revenue,0);assert.ok(mixed[0].revenue>=ads[0].revenue);
  assert.ok(mixed.at(-1).organicVisits>0);assert.ok(mixed.at(-1).referralVisits>0);assert.ok(mixed.at(-1).repeatOrders>0);
  assert.ok(mixed.at(-1).revenue>ads.at(-1).revenue);assert.ok(mixed.at(-1).strategy.adMultiplier>ads.at(-1).strategy.adMultiplier);
  assert.deepEqual([...new Set(mixed.map(m=>m.strategy.phase))],['launch','growth','advocacy']);
@@ -100,7 +97,7 @@ test('repurchase products prioritize community relationship work within the cont
  const limited={...business,marketingTeam:{headcount:1,hoursPerPerson:100,performance:'standard',awarenessRetention:94}};
  const repeat=recommendMix(1,3000000,limited,product,initialMemory());
  const oneoff=recommendMix(1,3000000,limited,{...product,repurchasePossible:false},initialMemory());
- assert.ok(repeat.cafe>oneoff.cafe);
+ assert.ok((repeat.cafe||0)>(oneoff.cafe||0));
  const memory={...initialMemory(),awareness:30,trust:40,advocacy:20};
  const loyal=project(input({cafe:10},{memory}),1)[0],single=project(input({cafe:10},{memory,product:{...product,repurchasePossible:false}}),1)[0];
  assert.ok(loyal.memoryAfter.advocacy>single.memoryAfter.advocacy);
