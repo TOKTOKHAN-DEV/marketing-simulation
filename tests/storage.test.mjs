@@ -93,15 +93,15 @@ test('saved business sessions and product deletion undo survive reload without m
 });
 
 test('reinvestment settings, previous revenue and funding forecasts survive reload; legacy history remains exact',async()=>{
- const {simulate}=await import('../simulation.mjs');const {initialMemory,initialPlan}=await import('../model.mjs');const {memoryForHistory}=await import('../funding.mjs');
+ const {simulate}=await import('../simulation.mjs');const {initialMemory,initialPlan}=await import('../model.mjs');const {memoryForHistory,DEFAULT_BUDGET_POLICY}=await import('../funding.mjs');
  const business={id:'b',name:'재투자 저장',industry:'commerce',market:'B2C',audience:'',budgetPolicy:{baseBudget:5000000,reinvestmentRate:.4}},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''};
  const record=simulate({business,product,products:[product],plan:{...initialPlan(),units:{display:50}},memory:initialMemory(),stage:1,round:1});
  const state={...newState(),business,products:[product],productId:'p',history:[record],projectionScaleBudget:false};assert.equal(validState(state),true);
  const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
- try{const loaded=loadGame('reinvest');assert.deepEqual(loaded.business.budgetPolicy,business.budgetPolicy);assert.equal(loaded.projectionScaleBudget,false);assert.equal(memoryForHistory(loaded.history,initialMemory()).lastRevenue,record.metrics.companyRevenue);assert.equal(loaded.history[0].forecast[1].budget,record.metrics.funding.nextBudget);}finally{globalThis.localStorage=old;}
+ try{const loaded=loadGame('reinvest');assert.deepEqual(loaded.business.budgetPolicy,DEFAULT_BUDGET_POLICY);assert.equal(loaded.projectionScaleBudget,false);assert.equal(memoryForHistory(loaded.history,initialMemory()).lastRevenue,record.metrics.companyRevenue);assert.equal(loaded.history[0].forecast[1].budget,record.metrics.funding.nextBudget);}finally{globalThis.localStorage=old;}
  const broken=structuredClone(state);broken.business.budgetPolicy.reinvestmentRate=4;assert.equal(validState(broken),false);const bad=structuredClone(state);bad.history[0].memoryAfter.lastRevenue=-1;assert.equal(validState(bad),false);
  const {budgetPolicy,...legacy}=business,legacyRecord=simulate({business:legacy,product,plan:{...initialPlan(),budget:3000000},memory:initialMemory(),stage:1,round:1});const legacyState={...state,business:legacy,history:[legacyRecord]};globalThis.localStorage={getItem:()=>JSON.stringify(legacyState)};
- try{const upgraded=loadGame('legacy-funding');assert.equal(upgraded.business.budgetPolicy.baseBudget,5000000);assert.deepEqual(upgraded.history,JSON.parse(JSON.stringify(legacyState.history)));assert.equal(upgraded.history[0].businessSnapshot.budgetPolicy,undefined);}finally{globalThis.localStorage=old;}
+ try{const upgraded=loadGame('legacy-funding');assert.equal(upgraded.business.budgetPolicy.baseBudget,3000000);assert.deepEqual(upgraded.history,JSON.parse(JSON.stringify(legacyState.history)));assert.equal(upgraded.history[0].businessSnapshot.budgetPolicy,undefined);}finally{globalThis.localStorage=old;}
 });
 test('an overspending future preview is retained as a warning without corrupting valid executed history',async()=>{
  const {simulate}=await import('../simulation.mjs');const {initialMemory,initialPlan}=await import('../model.mjs');
@@ -140,4 +140,12 @@ test('new domestic media, creative memory, group-buy fees and service commission
  const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
  try{const loaded=loadGame('domestic');assert.deepEqual(loaded.plans['p:monthly'],plan);assert.deepEqual(loaded.monthlyPlans[12].plan,plan);assert.equal(loaded.history[0].metrics.groupBuyFee,record.metrics.groupBuyFee);assert.equal(loaded.history[0].memoryAfter.adCreatives.p.tiktok.format,'video');assert.equal(loaded.history[0].memoryAfter.serviceQueues.old.groupBuyCommissionRate,.25);}finally{globalThis.localStorage=old;}
  const bad=structuredClone(state);bad.history[0].memoryAfter.serviceQueues.old.groupBuyCommissionRate=.26;assert.equal(validState(bad),false);
+});
+test('cash ledger, recommendations and zero-cash passes restore without changing recorded funding',async()=>{
+ const {simulate}=await import('../simulation.mjs'),{initialMemory,initialPlan}=await import('../model.mjs'),{DEFAULT_BUDGET_POLICY,memoryForHistory}=await import('../funding.mjs');
+ const business={id:'b',name:'자금 복원',industry:'commerce',market:'B2C',audience:'',budgetPolicy:{...DEFAULT_BUDGET_POLICY}},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''},first=simulate({business,product,plan:{...initialPlan(),units:{display:360}},memory:initialMemory(),stage:1,round:1}),pass=simulate({business,product,plan:initialPlan(),memory:first.memoryAfter,stage:1,round:2});
+ const state={...newState(),business,products:[product],productId:'p',history:[first,pass]};assert.equal(first.metrics.funding.nextBudget,0);assert.equal(pass.metrics.budget,0);assert.equal(validState(state),true);
+ const old=globalThis.localStorage;globalThis.localStorage={getItem:()=>JSON.stringify(state)};
+ try{const loaded=loadGame('cash');assert.deepEqual(loaded.business.budgetPolicy,DEFAULT_BUDGET_POLICY);assert.deepEqual(loaded.history,JSON.parse(JSON.stringify(state.history)));const memory=memoryForHistory(loaded.history,initialMemory());assert.equal(memory.cumulativeSpend,36000000);assert.equal(memory.cumulativeRevenue,0);}finally{globalThis.localStorage=old;}
+ const bad=structuredClone(state);bad.history[1].memoryAfter.cumulativeSpend=-1;assert.equal(validState(bad),false);
 });

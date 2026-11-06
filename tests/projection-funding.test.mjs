@@ -18,3 +18,7 @@ test('CSV exports the same month-start article counts, content support and refer
  const [m]=project({business,product,plan:{...initialPlan(),units:{display:10}},memory,stage:1},1),[header,row]=csvFor([m]).replace(/^\uFEFF/,'').split('\r\n').map(line=>line.split(',')),read=key=>Number(row[header.indexOf(key)]);
  assert.equal(read('월초온드블로그누적'),100);assert.equal(read('월초온드SNS누적'),20);assert.equal(read('콘텐츠기반광고전환계수'),m.strategy.content.adConversionMultiplier);assert.equal(read('추천전환보너스'),m.strategy.content.referralMultiplier);assert.equal(read('추천방문구매전환율'),m.referralConversionRate);assert.ok(m.referralConversionRate>0);
 });
+test('cash forecast CSV distinguishes annual capital, recommended allocation and remaining spending limit',()=>{
+ const business={id:'b',name:'연간 자금 CSV',industry:'commerce',market:'B2C',audience:'',budgetPolicy:{mode:'cash',totalBudget:36000000,baseBudget:3000000,reinvestmentRate:.3}},product={id:'p',businessId:'b',name:'상품',price:30000,purchaseType:'oneoff',value:''},forecast=project({business,product,plan:{...initialPlan(),units:{display:60}},memory:initialMemory(),stage:1},3),[header,...rows]=csvFor(forecast).replace(/^\uFEFF/,'').split('\r\n').map(line=>line.split(','));
+ for(const[i,row]of rows.entries()){const read=key=>Number(row[header.indexOf(key)]),m=forecast[i];assert.equal(row.length,header.length);assert.equal(read('연간시작자금'),36000000);assert.equal(read('월권장예산'),3000000);assert.equal(read('월예산한도'),m.budget);assert.equal(read('누적마케팅집행'),i*6000000);assert.equal(read('다음달사용가능예산'),m.funding.nextBudget);}
+});

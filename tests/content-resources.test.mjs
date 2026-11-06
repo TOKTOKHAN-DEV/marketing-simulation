@@ -71,7 +71,7 @@ test('service referral commissions wait for completion and survive passive deliv
 test('mega short and long formats enforce the instructor price ranges on the server',()=>{
  for(const [id,low,high]of [['mega',5000000,8000000],['mega-long',30000000,50000000]]){
   assert.equal(CHANNELS.find(c=>c.id===id).minCost,low);
-  for(const rate of [low,high]){const plan={...initialPlan(),budget:100000000,units:{[id]:1},rates:{[id]:rate}};assert.equal(validateCampaign(input({plan})),null);assert.equal(project(input({plan}),1)[0].spend,rate);}
+  for(const rate of [low,high]){const plan={...initialPlan(),budget:100000000,units:{[id]:1},rates:{[id]:rate}};assert.equal(validateCampaign(input({plan,memory:establishedMemory({awareness:50,trust:50})})),null);assert.equal(project(input({plan,memory:establishedMemory({awareness:50,trust:50})}),1)[0].spend,rate);}
   for(const rate of [low-1,high+1])assert.match(validateCampaign(input({plan:{...initialPlan(),units:{[id]:1},rates:{[id]:rate}}})),/단가 범위/);
  }
 });

@@ -1,7 +1,7 @@
-import {budgetFor,scalePaidPlan} from './funding.mjs';
+import {budgetFor,scalePaidPlan,allocationBudget} from './funding.mjs';
 export {budgetFor} from './funding.mjs';
-import {growthStrategy,productProfile,seedingEligibility,STRATEGY_RULES} from './strategy.mjs';
-export {productProfile,seedingEligibility,contentFoundation} from './strategy.mjs';
+import {growthStrategy,productProfile,seedingEligibility,megaEligibility,isPaidSnsBrandChannel,brandGrowth,STRATEGY_RULES} from './strategy.mjs';
+export {productProfile,seedingEligibility,contentFoundation,megaEligibility,isPaidSnsBrandChannel,BRAND_RULES} from './strategy.mjs';
 import {benchmarkFor,AD_SOURCES} from './research/ad-benchmarks.mjs';
 import {EXTRA_CHANNELS,EXTRA_ADS,MEDIA_SOURCES} from './research/domestic-media.mjs';
 export {MEDIA_SOURCES} from './research/domestic-media.mjs';
@@ -39,8 +39,8 @@ export const CHANNELS = [
 export const AD_IDS=CHANNELS.filter(c=>c.group==='performance').map(c=>c.id);
 export const CREATIVE_IDS=AD_IDS.filter(id=>id!=='search');
 export const GROUP_BUY_COMMISSION=.25;
-export const initialMemory=()=>({awareness:5,trust:8,advocacy:3,organicAssets:0,customers:0,productCustomers:{},serviceQueues:{},month:0});
-export const initialPlan=()=>({budget:5000000,units:{},hypothesis:''});
+export const initialMemory=()=>({awareness:5,trust:8,advocacy:3,organicAssets:0,customers:0,productCustomers:{},serviceQueues:{},cumulativeRevenue:0,cumulativeSpend:0,month:0});
+export const initialPlan=()=>({budget:3000000,units:{},hypothesis:''});
 export const industryFor=id=>INDUSTRIES.find(i=>i.id===id)||INDUSTRIES.at(-1);
 export const TEAM_LEVELS={starter:{label:'주니어',speed:.7,quality:.8},standard:{label:'일반',speed:1,quality:1},expert:{label:'숙련',speed:1.4,quality:1.2}};
 export const teamFor=b=>({headcount:1,hoursPerPerson:120,performance:'standard',awarenessRetention:94,...b?.marketingTeam});
@@ -75,13 +75,14 @@ export function planSummary({business,product,plan,memory}) {
   let baseSpend=0,workHours=0,ownedPublished=0,creativeWorkHours=0,creativeRefreshes=0;
   const channels=CHANNELS.filter(c=>(plan.units[c.id]||0)>0).map(c=>{
     const requestedUnits=plan.units[c.id],units=requestedUnits;
-    const placements=c.id==='influencer-seeding'?units*(seedingEligibility(product,memory,industryFor(business.industry).referencePrice).eligible?seedingRate(seeding.mode):0):units;
+    const collaborationBlocked=['mega','mega-long'].includes(c.id)&&!megaEligibility(memory).eligible;
+    const placements=collaborationBlocked?0:c.id==='influencer-seeding'?units*(seedingEligibility(product,memory,industryFor(business.industry).referencePrice).eligible?seedingRate(seeding.mode):0):units;
     const ad=c.group==='performance'?adStateFor({business,product,plan,memory},c.id):null;
     const hours=units*(c.hours||0)/level.speed+(ad?.workHours||0);
     creativeWorkHours+=ad?.creativeHours||0;creativeRefreshes+=ad?.creativeRefreshed?1:0;
-    const cost=c.id==='influencer-seeding'?placements*(seeding.mode==='gift'?(product.sponsorshipCost??Math.round(product.price*.3)):seeding.mode==='paid'?seeding.fee:0):units*(costFor(c,plan)+(c.sponsorship?(product.sponsorshipCost??Math.round(product.price*.3)):0));
+    const cost=collaborationBlocked?0:c.id==='influencer-seeding'?placements*(seeding.mode==='gift'?(product.sponsorshipCost??Math.round(product.price*.3)):seeding.mode==='paid'?seeding.fee:0):units*(costFor(c,plan)+(c.sponsorship?(product.sponsorshipCost??Math.round(product.price*.3)):0));
     workHours+=hours;baseSpend+=cost;if(c.ownership==='owned')ownedPublished+=units;
-    return{...c,ownership:c.ownership||'paid',requestedUnits,units,placements,workHours:rounded(hours),spend:Math.round(cost),ad};
+    return{...c,ownership:c.ownership||'paid',requestedUnits,units,placements,collaborationBlocked,workHours:rounded(hours),spend:Math.round(cost),ad};
   });
   return{channels,baseSpend:Math.round(baseSpend),workHours:rounded(workHours),teamCapacity:team.headcount*team.hoursPerPerson,ownedPublished,creativeWorkHours:rounded(creativeWorkHours),creativeRefreshes,quality:level.quality,team,seeding};
 }
@@ -93,6 +94,7 @@ const finiteIn=(n,min,max)=>Number.isFinite(n)&&n>=min&&n<=max;
 export function validateCampaign({business:b,product:p,products,plan,memory:m,stage}) {
   if(!b||!validText(b.id,100)||!validText(b.name,60)||!INDUSTRIES.some(i=>i.id===b.industry)||!['B2C','B2B','B2B2C','B2G'].includes(b.market)||typeof b.audience!=='string'||b.audience.length>200)return '비즈니스 정보를 확인해주세요.';
   if(b.budgetPolicy!==undefined&&(!b.budgetPolicy||typeof b.budgetPolicy!=='object'||Array.isArray(b.budgetPolicy)||!Number.isInteger(b.budgetPolicy.baseBudget)||!finiteIn(b.budgetPolicy.baseBudget,0,100000000)||!finiteIn(b.budgetPolicy.reinvestmentRate,0,1)))return '기본 마케팅 예산과 매출 재투자율을 확인해주세요.';
+  if(b.budgetPolicy?.mode!==undefined&&(b.budgetPolicy.mode!=='cash'||!Number.isInteger(b.budgetPolicy.totalBudget)||!finiteIn(b.budgetPolicy.totalBudget,0,1e12)))return '연간 마케팅 자금을 확인해주세요.';
   const validProduct=item=>item&&validText(item.id,100)&&item.businessId===b.id&&validText(item.name,100)&&Number.isInteger(item.price)&&finiteIn(item.price,1000,100000000)&&['oneoff','repeat','service','subscription'].includes(item.purchaseType)&&typeof item.value==='string'&&item.value.length<=300
     &&(item.purchaseType!=='service'||(finiteIn(item.hoursPerOrder,.25,100000)&&finiteIn(item.monthlyHours,0,1000000)))&&(item.churnRate===undefined||finiteIn(item.churnRate,0,100))&&(item.involvement===undefined||['low','high'].includes(item.involvement))&&(item.repurchasePossible===undefined||typeof item.repurchasePossible==='boolean')&&(item.canSponsor===undefined||typeof item.canSponsor==='boolean')&&(item.sponsorshipCost===undefined||(Number.isInteger(item.sponsorshipCost)&&finiteIn(item.sponsorshipCost,0,100000000)));
   if(!validProduct(p))return '상품 가격, 투입 시간 또는 월 해지율을 확인해주세요.';
@@ -105,6 +107,8 @@ export function validateCampaign({business:b,product:p,products,plan,memory:m,st
   if(!m||!['awareness','trust','advocacy'].every(k=>finiteIn(m[k],0,100))||!Number.isInteger(m.month)||!finiteIn(m.month,0,999999)||!finiteIn(m.organicAssets,0,100000)||!finiteIn(m.customers,0,1e9)||!m.productCustomers||typeof m.productCustomers!=='object'||Array.isArray(m.productCustomers)||Object.keys(m.productCustomers).length>100||!Object.values(m.productCustomers).every(n=>Number.isInteger(n)&&finiteIn(n,0,1e9)))return '누적 브랜드 데이터를 확인해주세요.';
   if(m.month>=12)return 'M1~M12의 12개월까지만 실행할 수 있어요. 기존 달의 전략을 수정해주세요.';
   if(m.lastRevenue!==undefined&&!finiteIn(m.lastRevenue,0,1e18))return '전월 매출 데이터를 확인해주세요.';
+  if(['cumulativeRevenue','cumulativeSpend'].some(k=>m[k]!==undefined&&(!Number.isInteger(m[k])||!finiteIn(m[k],0,1e18)))||(b.budgetPolicy?.mode==='cash'&&m.month>0&&['cumulativeRevenue','cumulativeSpend'].some(k=>m[k]===undefined)))return '누적 매출과 누적 마케팅 집행비를 확인해주세요.';
+  if(b.budgetPolicy?.mode==='cash'&&m.month===0&&((m.cumulativeRevenue||0)!==0||(m.cumulativeSpend||0)!==0))return '첫 달의 누적 매출·집행비는 0원부터 시작해요.';
   if(m.serviceQueues!==undefined&&(!m.serviceQueues||typeof m.serviceQueues!=='object'||Array.isArray(m.serviceQueues)||Object.keys(m.serviceQueues).length>100||!Object.values(m.serviceQueues).every(q=>q&&Number.isInteger(q.pendingOrders)&&finiteIn(q.pendingOrders,0,1e9)&&finiteIn(q.progressHours,0,100000)&&finiteIn(q.marketingShare,0,1)&&finiteIn(q.performanceShare,0,1)&&q.performanceShare<=q.marketingShare&&(q.commissionRate===undefined||finiteIn(q.commissionRate,0,.5))&&(q.groupBuyCommissionRate===undefined||finiteIn(q.groupBuyCommissionRate,0,GROUP_BUY_COMMISSION)))))return '이월 서비스 작업 데이터를 확인해주세요.';
   if(m.strategyStates!==undefined&&(!m.strategyStates||typeof m.strategyStates!=='object'||Array.isArray(m.strategyStates)||Object.keys(m.strategyStates).length>100||Object.values(m.strategyStates).some(s=>!s||!finiteIn(s.adPressure,0,1)||!Number.isInteger(s.concentrationMonths)||!finiteIn(s.concentrationMonths,0,1000000)||!s.shares||Array.isArray(s.shares)||!['search','display','influencer','content'].every(k=>finiteIn(s.shares[k],0,1)))))return '전략 누적 데이터를 확인해주세요.';
   if(m.ownedAwareness!==undefined&&(!finiteIn(m.ownedAwareness,0,100)||m.ownedAwareness>m.awareness+.01))return '온드 인지도 데이터를 확인해주세요.';
@@ -121,10 +125,14 @@ export function validateCampaign({business:b,product:p,products,plan,memory:m,st
   if(plan.campaigns!==undefined&&(!plan.campaigns||typeof plan.campaigns!=='object'||Array.isArray(plan.campaigns)||Object.entries(plan.campaigns).some(([id,s])=>!AD_IDS.includes(id)||!s||typeof s!=='object'||Array.isArray(s)||(s.keyword!==undefined&&!['purchase','explore'].includes(s.keyword))||(s.format!==undefined&&!['image','video'].includes(s.format))||(s.refreshMonths!==undefined&&![0,1,2,3].includes(s.refreshMonths))||(s.refreshNow!==undefined&&typeof s.refreshNow!=='boolean')||(s.skipRefresh!==undefined&&typeof s.skipRefresh!=='boolean')||(s.refreshNow&&s.skipRefresh)||(s.format!==undefined&&!adFormatsFor(id).includes(s.format)))))return '광고 전략과 소재 교체 주기를 확인해주세요.';
   if(m.adCreatives!==undefined&&(!m.adCreatives||typeof m.adCreatives!=='object'||Array.isArray(m.adCreatives)||Object.keys(m.adCreatives).length>100||Object.values(m.adCreatives).some(row=>!row||typeof row!=='object'||Array.isArray(row)||Object.entries(row).some(([id,c])=>!CREATIVE_IDS.includes(id)||!c||!Number.isInteger(c.age)||!finiteIn(c.age,0,1000)||!['image','video'].includes(c.format)||!finiteIn(c.quality,.8,1.2)||!Number.isInteger(c.lastRefreshMonth)||!finiteIn(c.lastRefreshMonth,1,m.month)))))return '광고 소재 이력 데이터를 확인해주세요.';
   const summary=planSummary({business:b,product:p,plan,memory:m});
+  const allowance=budgetFor(b,plan,m),hasMarketing=Object.values(plan.units).some(n=>n>0);
+  if(allowance.mode==='cash'&&allowance.availableBudget<=0&&hasMarketing)return '남은 마케팅 자금이 0원이에요. 신규 집행 없이 이번 달을 패스하고 매출 유입을 기다려주세요.';
+  if(summary.channels.some(c=>c.collaborationBlocked))return '메가 인플루언서는 월초 인지도 50점·신뢰 50점이 모두 필요해요. 예산과 관계없이 현재는 협업할 수 없습니다.';
   if(summary.channels.some(c=>c.id==='influencer-seeding'&&c.units>0)&&seed.mode==='gift'&&!(p.canSponsor??p.purchaseType==='oneoff'))return '이 상품은 제품 협찬이 불가능해요. 유료 또는 레퍼럴 제안을 선택해주세요.';
   if(summary.channels.some(c=>c.sponsorship)&&!(p.canSponsor??p.purchaseType==='oneoff'))return '체험단은 제품·서비스 제공이 가능해야 해요. 상품의 협찬 가능 여부를 확인해주세요.';
   if(summary.workHours>summary.teamCapacity)return '내부 마케터의 월 가용 시간을 초과했어요. 발행·접촉 수량을 줄이거나 인력을 조정해주세요.';
-  if(project({business:b,product:p,products,plan,memory:m,stage},1)[0].spend>budgetFor(b,plan,m).availableBudget)return '집행비와 예상 레퍼럴·공구 수수료가 월 예산을 초과했어요.';
+  const result=project({business:b,product:p,products,plan,memory:m,stage},1)[0];
+  if(result.spend-(result.funding.settledFromRevenue||0)>allowance.availableBudget)return '집행비와 예상 레퍼럴·공구 수수료가 사용 가능한 마케팅 예산(잔여 자금)을 초과했어요.';
   return null;
 }
 
@@ -188,7 +196,7 @@ export function calculateSales(p,m,demandOrders,marketingShare,performanceShare=
 function monthFor({business:b,product:p,products,plan,memory:m}) {
   const industry=industryFor(b.industry),summary=planSummary({business:b,product:p,plan,memory:m});
   const strategy=growthStrategy(p,m,summary.channels,industry.referencePrice),funding=budgetFor(b,plan,m);
-  let spend=summary.baseSpend,gainA=0,gainOwned=0,gainT=0,gainV=0,assets=0;
+  let spend=summary.baseSpend,gainA=0,gainOwned=0,gainT=0,gainV=0,assets=0,paidSnsA=0,paidSnsT=0;
   const channels=summary.channels.map(c=>{
     const units=c.units,effective=c.placements<1?c.placements:Math.pow(c.placements,c.id==='cafe'?.66:.86),fit=affinity(c,b.industry,b.market);
     const quality=c.ownership==='owned'?summary.quality:1;
@@ -201,8 +209,9 @@ function monthFor({business:b,product:p,products,plan,memory:m}) {
     const brandUnits=(c.placements<1?c.placements:Math.pow(c.placements,c.id==='cafe'?.55:.72))*1.6*quality*brandReach*saturation;
     gainA+=c.awareness*brandUnits*fit;if(c.ownership==='owned')gainOwned+=c.awareness*brandUnits*fit;
     gainT+=c.trust*brandUnits*fit;gainV+=c.advocacy*brandUnits*(strategy.profile.repurchasable?1.2:1);
+    if(isPaidSnsBrandChannel(c.id)){paidSnsA+=c.awareness*brandUnits*fit;paidSnsT+=c.trust*brandUnits*fit;}
     if(c.ownership==='owned')assets+=units*(c.id==='owned'?1:c.id==='platform'?.12:.04)*quality*saturation;
-    return{id:c.id,name:c.name,group:c.group,ownership:c.ownership,requestedUnits:c.requestedUnits,units,placements:rounded(c.placements),workHours:c.workHours,spend:c.spend,visits,impressions,intent:c.ad?.intent??c.intent,searchBrandMultiplier:c.id==='search'?strategy.searchBrandMultiplier:1,adEfficiency:c.group==='performance'?strategy.adMultiplier:1,...(c.ad?{campaignType:c.ad.campaignType,baseCpc:c.ad.baseCpc,effectiveCpc:rounded(c.ad.effectiveCpc),creativeAge:c.ad.creativeAge,creativeRefreshed:c.ad.creativeRefreshed,creativeHours:rounded(c.ad.creativeHours),clickMultiplier:rounded(c.ad.clickMultiplier),conversionMultiplier:rounded(c.ad.conversionMultiplier),creativeFormat:c.ad.settings.format}:{}),awarenessGain:rounded(c.awareness*brandUnits*fit),trustGain:rounded(c.trust*brandUnits*fit)};
+    return{id:c.id,name:c.name,group:c.group,ownership:c.ownership,requestedUnits:c.requestedUnits,units,placements:rounded(c.placements),collaborationBlocked:c.collaborationBlocked,workHours:c.workHours,spend:c.spend,visits,impressions,intent:c.ad?.intent??c.intent,searchBrandMultiplier:c.id==='search'?strategy.searchBrandMultiplier:1,adEfficiency:c.group==='performance'?strategy.adMultiplier:1,...(c.ad?{campaignType:c.ad.campaignType,baseCpc:c.ad.baseCpc,effectiveCpc:rounded(c.ad.effectiveCpc),creativeAge:c.ad.creativeAge,creativeRefreshed:c.ad.creativeRefreshed,creativeHours:rounded(c.ad.creativeHours),clickMultiplier:rounded(c.ad.clickMultiplier),conversionMultiplier:rounded(c.ad.conversionMultiplier),creativeFormat:c.ad.settings.format}:{}),awarenessGain:rounded(c.awareness*brandUnits*fit),trustGain:rounded(c.trust*brandUnits*fit)};
   });
   const marketingVisits=channels.reduce((a,c)=>a+c.visits,0);
   // This month's brand investment changes NEXT month's organic acquisition.
@@ -258,27 +267,26 @@ function monthFor({business:b,product:p,products,plan,memory:m}) {
   const groupBuyFee=productSales.reduce((sum,s)=>sum+(s.groupBuyFee||0),0),groupBuyRevenue=productSales.reduce((sum,s)=>sum+(s.groupBuyRevenue||0),0);
   spend+=productSales.reduce((sum,s)=>sum+(s.referralFee||0)+(s.groupBuyFee||0),0);
   const groupBuyChannel=channels.find(c=>c.id==='group-buy');if(groupBuyChannel)groupBuyChannel.spend=sales.groupBuyFee;
+  const settledFromRevenue=funding.mode==='cash'&&!Object.values(plan.units).some(n=>n>0)?Math.min(spend,companyRevenue):0;
   const ownedRetention=summary.team.awarenessRetention/100,paidRetention=Math.max(0,ownedRetention-.08);
-  const ownedBefore=Math.min(m.ownedAwareness||0,m.awareness),paidBefore=m.awareness-ownedBefore;
-  const ownedAfter=ownedBefore*ownedRetention+gainOwned;
-  const totalAwareness=ownedAfter+paidBefore*paidRetention+gainA-gainOwned;
-  const cappedAwareness=bounded(totalAwareness,0,98);
+  const brand=brandGrowth({memory:m,ownedRetention,paidRetention,awarenessGain:gainA,ownedAwarenessGain:gainOwned,trustGain:gainT,paidSnsAwarenessGain:paidSnsA,paidSnsTrustGain:paidSnsT});
+  for(const c of channels){const paid=isPaidSnsBrandChannel(c.id);c.awarenessGain=rounded(c.awarenessGain*(paid?brand.awarenessPaidScale:brand.awarenessContentScale));c.trustGain=rounded(c.trustGain*(paid?brand.trustPaidScale:brand.trustContentScale));}
   const contentPublished=structuredClone(m.contentPublished||{});
   contentPublished[p.id]={...(contentPublished[p.id]||{})};
-  for(const c of channels)contentPublished[p.id][c.id]=(contentPublished[p.id][c.id]||0)+c.units;
+  for(const c of channels)if(!summary.channels.find(s=>s.id===c.id)?.collaborationBlocked)contentPublished[p.id][c.id]=(contentPublished[p.id][c.id]||0)+c.units;
   const adCreatives=structuredClone(m.adCreatives||{});
   for(const row of Object.values(adCreatives))for(const creative of Object.values(row))creative.age=Math.min(1000,creative.age+1);
   for(const c of summary.channels){if(c.ad&&c.id!=='search'){
     adCreatives[p.id]??={};adCreatives[p.id][c.id]={age:Math.min(1000,c.ad.creativeAge+1),format:c.ad.settings.format,quality:c.ad.quality,lastRefreshMonth:c.ad.creativeRefreshed?m.month+1:m.adCreatives[p.id][c.id].lastRefreshMonth};
   }}
-  const memoryAfter={awareness:rounded(cappedAwareness),ownedAwareness:rounded(totalAwareness?ownedAfter*cappedAwareness/totalAwareness:0),trust:rounded(bounded(m.trust*.98+gainT,0,98)),advocacy:rounded(bounded(m.advocacy*.98+gainV,0,98)),organicAssets:rounded(m.organicAssets*.96+assets),customers:m.customers+newOrders+extraCustomers,productCustomers,serviceQueues,contentPublished,adCreatives,strategyStates:{...(m.strategyStates||{}),[p.id]:strategy.next},lastRevenue:companyRevenue,month:m.month+1};
+  const memoryAfter={awareness:rounded(brand.awareness),ownedAwareness:rounded(brand.ownedAwareness),trust:rounded(brand.trust),advocacy:rounded(bounded(m.advocacy*.98+gainV,0,98)),organicAssets:rounded(m.organicAssets*.96+assets),customers:m.customers+newOrders+extraCustomers,productCustomers,serviceQueues,contentPublished,adCreatives,strategyStates:{...(m.strategyStates||{}),[p.id]:strategy.next},lastRevenue:companyRevenue,cumulativeRevenue:(funding.mode==='cash'&&m.month===0?0:m.cumulativeRevenue||0)+companyRevenue,cumulativeSpend:(funding.mode==='cash'&&m.month===0?0:m.cumulativeSpend||0)+spend,month:m.month+1};
   const dominant=[...channels].filter(c=>c.awarenessGain>0||c.trustGain>0).sort((a,b)=>b.awarenessGain-a.awarenessGain)[0];
   let narrative=dominant?`${dominant.name} 중심으로 활동했어요. ${dominant.awarenessGain>dominant.trustGain?'브랜드를 알아보는 접점':'고객이 신뢰할 근거'}가 늘었습니다. ${strategy.content.blogReady||strategy.content.brandDemandMultiplier>0?'콘텐츠 기반과 신뢰가 다음 달 자연 검색·추천 유입에 기여해요.':'직접 유입 전에 콘텐츠 기반부터 쌓고 있어요.'}`:marketingVisits>0?'광고로 당월 방문을 확보했어요. 광고만으로 검색 자산·신뢰·추천이 쌓이지는 않습니다.':'이번 달 새 발행 성과 없이 기존 자산으로 운영했어요. 인지도는 월 유지율에 따라 감소합니다.';
   narrative+=' '+strategy.warnings.join(' ');
   if(summary.channels.some(c=>c.id==='owned')&&!strategy.content.blogReady)narrative+=' 온드블로그는 누적 100편 전까지 직접·검색 유입이 0입니다. 외부 접점으로 초기 유입을 확보하며 투자 여력을 확인하세요.';
   if(p.purchaseType==='service')narrative+=` 이번 달 ${sales.hoursUsed}시간을 사용해 ${newOrders}건을 완료했어요. 미완료 ${sales.serviceBacklog}건은 다음 달로 이월하며, 완료된 건만 매출로 계산해요.`;
   if(p.purchaseType==='subscription')narrative+=` 신규 ${sales.newSubscribers}명, 해지 ${sales.churnedSubscribers}명으로 현재 활성 구독자는 ${sales.activeSubscribers}명이에요.`;
-  return{funding:{...funding,nextBudget:b.budgetPolicy?funding.baseBudget+Math.floor(companyRevenue*funding.reinvestmentRate):plan.budget},strategy:{...strategy,next:undefined},creativeWorkHours:summary.creativeWorkHours,creativeRefreshes:summary.creativeRefreshes,adCpc:performanceVisits?Math.round(performanceSpend/performanceVisits):null,assetVisits,brandVisits,performanceVisits,organicShare:visits?organicVisits/visits:0,organicReadiness:rounded(strategy.foundation*100),workHours:summary.workHours,teamCapacity:summary.teamCapacity,ownedPublished:summary.ownedPublished,expectedPlacements:rounded(channels.find(c=>c.id==='influencer-seeding')?.placements||0),seedingAttempts:channels.find(c=>c.id==='influencer-seeding')?.units||0,awarenessLoss:rounded(m.awareness-ownedBefore*ownedRetention-paidBefore*paidRetention),ownedRetention,paidRetention,month:m.month+1,budget:funding.availableBudget,spend,unallocated:funding.availableBudget-spend,marketingVisits,organicVisits,referralVisits,referralConversionRate,visits,leadRate,leads,retentionRate,retained,closeRate,...sales,groupBuyFee,groupBuyRevenue,referralFee:productSales.reduce((sum,s)=>sum+(s.referralFee||0),0),companyRevenue,companyAttributedRevenue,companyRoas:spend?Math.round(companyAttributedRevenue/spend*100):null,companyMer:spend?Math.round(companyRevenue/spend*100):null,backgroundRevenue:companyRevenue-revenue,companyMrr,companyArr:companyMrr*12,productSales,
+  return{funding:{...funding,settledFromRevenue,nextBudget:funding.mode==='cash'?Math.max(0,funding.availableBudget+companyRevenue-spend):b.budgetPolicy?funding.baseBudget+Math.floor(companyRevenue*funding.reinvestmentRate):plan.budget,nextRecommendedBudget:funding.baseBudget+Math.floor(companyRevenue*funding.reinvestmentRate)},strategy:{...strategy,next:undefined},creativeWorkHours:summary.creativeWorkHours,creativeRefreshes:summary.creativeRefreshes,adCpc:performanceVisits?Math.round(performanceSpend/performanceVisits):null,assetVisits,brandVisits,performanceVisits,organicShare:visits?organicVisits/visits:0,organicReadiness:rounded(strategy.foundation*100),workHours:summary.workHours,teamCapacity:summary.teamCapacity,ownedPublished:summary.ownedPublished,expectedPlacements:rounded(channels.find(c=>c.id==='influencer-seeding')?.placements||0),seedingAttempts:channels.find(c=>c.id==='influencer-seeding')?.units||0,awarenessLoss:rounded(brand.awarenessLoss),ownedRetention,paidRetention,month:m.month+1,budget:funding.availableBudget,spend,unallocated:funding.availableBudget-spend+settledFromRevenue,marketingVisits,organicVisits,referralVisits,referralConversionRate,visits,leadRate,leads,retentionRate,retained,closeRate,...sales,groupBuyFee,groupBuyRevenue,referralFee:productSales.reduce((sum,s)=>sum+(s.referralFee||0),0),companyRevenue,companyAttributedRevenue,companyRoas:spend?Math.round(companyAttributedRevenue/spend*100):null,companyMer:spend?Math.round(companyRevenue/spend*100):null,backgroundRevenue:companyRevenue-revenue,companyMrr,companyArr:companyMrr*12,productSales,
     roas:spend?Math.round(attributedRevenue/spend*100):null,mer:spend?Math.round(revenue/spend*100):null,performanceRoas:performanceSpend?Math.round(performanceRevenue/performanceSpend*100):null,
     cpa:demandOrders?Math.round(spend/demandOrders):null,cpc:marketingVisits?Math.round(spend/marketingVisits):null,priceLeadMultiplier:priceLead,priceCloseMultiplier:priceClose,channels,memoryAfter,narrative};
 }
@@ -288,9 +296,9 @@ export function project(input,horizon=3,options={}) {
 // A month's revenue becomes funding for the following month, including subscription/passive revenue.
 export function projectMonthly(input,plans,{scalePaid=true}={}) {
  let memory=structuredClone(input.memory);const result=[];
- const baseBudget=budgetFor(input.business,input.plan,input.memory).availableBudget;
+ const baseBudget=allocationBudget(budgetFor(input.business,input.plan,input.memory));
  for(const [index,plan]of plans.slice(0,Math.max(0,12-memory.month)).entries()){
-  const available=budgetFor(input.business,plan,memory).availableBudget;
+  const available=allocationBudget(budgetFor(input.business,plan,memory));
   const applied=index>0&&scalePaid&&input.business.budgetPolicy?scalePaidPlan(plan,CHANNELS,baseBudget,available):plan;
   const month=monthFor({...input,plan:applied,memory});result.push(month);memory=month.memoryAfter;
  }

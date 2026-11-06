@@ -1,4 +1,5 @@
 import {project,validateCampaign} from './model.mjs';
+import {memoryForHistory} from './funding.mjs';
 
 // Replay only from the earliest changed month; earlier stored results remain exact.
 export function replayRecords(records,memoryBefore) {
@@ -29,7 +30,7 @@ export function planForRecord(record) {
 export function revisionPayload(history,drafts,workshopId='') {
  const index=history.findIndex(h=>drafts[h.id]&&JSON.stringify(drafts[h.id])!==JSON.stringify(planForRecord(h)));
  if(index<0)return null;
- return{workshopId,fromMonth:history[index].metrics.month,memoryBefore:{...structuredClone(history[index].memoryBefore),...(index>0?{lastRevenue:history[index-1].metrics.companyRevenue??history[index-1].metrics.revenue}:{})},records:history.slice(index).map(h=>({id:h.id,month:h.metrics.month,stage:h.stage,businessSnapshot:pick(h.businessSnapshot,businessFields),productSnapshot:pick(h.productSnapshot,productFields),...(h.productsSnapshot?{productsSnapshot:h.productsSnapshot.map(p=>pick(p,productFields))}:{}),plan:structuredClone(drafts[h.id]||planForRecord(h))}))};
+ return{workshopId,fromMonth:history[index].metrics.month,memoryBefore:structuredClone(memoryForHistory(history.slice(0,index),history[index].memoryBefore)),records:history.slice(index).map(h=>({id:h.id,month:h.metrics.month,stage:h.stage,businessSnapshot:pick(h.businessSnapshot,businessFields),productSnapshot:pick(h.productSnapshot,productFields),...(h.productsSnapshot?{productsSnapshot:h.productsSnapshot.map(p=>pick(p,productFields))}:{}),plan:structuredClone(drafts[h.id]||planForRecord(h))}))};
 }
 export function mergeRevision(history,records,revisedAt) {
  const byId=new Map(records.map(r=>[r.id,r]));

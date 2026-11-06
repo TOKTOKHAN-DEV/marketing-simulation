@@ -1,5 +1,5 @@
 export {budgetFor} from './funding.mjs';
-import type { ContentFoundation,Industry,Channel,Plan,Memory,CampaignInput,Metrics,Product,ServiceQueue,Business,MarketingTeam,ChannelResult,AdCampaign,OutlookMonth } from './src/types';
+import type { BrandRules,ContentFoundation,Industry,Channel,Plan,Memory,CampaignInput,Metrics,Product,ServiceQueue,Business,MarketingTeam,ChannelResult,AdCampaign,OutlookMonth } from './src/types';
 export const INDUSTRIES:Industry[];
 export const CHANNELS:Channel[];
 export const AD_IDS:string[];
@@ -21,6 +21,9 @@ export function teamFor(business?:Business|null):MarketingTeam;
 export function seedingFor(plan:Plan):{mode:'gift'|'paid'|'referral';fee:number;commission:number};
 export function productProfile(product:Product,referencePrice?:number):{involvement:'low'|'high';high:boolean;repurchasable:boolean};
 export function seedingEligibility(product:Product,memory:Memory,referencePrice?:number):{eligible:boolean;awareness:number;trust:number};
+export const BRAND_RULES:BrandRules;
+export function isPaidSnsBrandChannel(id:string):boolean;
+export function megaEligibility(memory:Memory):{eligible:boolean;awareness:number;trust:number};
 export function seedingRate(mode:string):number;
 export function contentFoundation(memory:Memory):ContentFoundation;
 export function allocationStep(channel:Channel):number;

@@ -1,5 +1,5 @@
 import {initialPlan,initialMemory,project,validateCampaign,clearCreativeActions,CHANNELS} from './model.mjs';
-import {memoryForHistory,scalePaidPlan} from './funding.mjs';
+import {memoryForHistory,scalePaidPlan,allocationBudget} from './funding.mjs';
 export const PLAN_MONTHS=12;
 export function annualPlan({business,products,history,monthlyPlans={},productId,legacyPlan}){
  let memory=memoryForHistory(history,initialMemory());const nextMonth=memory.month+1,entries=[];
@@ -20,10 +20,12 @@ export function fillAnnualPlans(input,fromMonth,source){
  if(!Number.isInteger(fromMonth)||fromMonth<1||fromMonth>PLAN_MONTHS)return input.monthlyPlans||{};
  const monthlyPlans={...input.monthlyPlans};const reference=annualPlan(input).entries.find(e=>e.month===fromMonth);
  if(!reference?.metrics)return monthlyPlans;
+ const referenceBudget=allocationBudget(reference.metrics.funding??{availableBudget:reference.metrics.budget});
  for(let month=fromMonth+1;month<=PLAN_MONTHS;month++){
   if(month<input.history.length+1||monthlyPlans[month])continue;
   const entry=annualPlan({...input,monthlyPlans}).entries.find(e=>e.month===month);
-  const plan=clearCreativeActions(scalePaidPlan(source.plan,CHANNELS,reference.metrics.budget,entry?.metrics?.budget??reference.metrics.budget));
+  const targetBudget=entry?.metrics?allocationBudget(entry.metrics.funding??{availableBudget:entry.metrics.budget}):referenceBudget;
+  const plan=clearCreativeActions(scalePaidPlan(source.plan,CHANNELS,referenceBudget,targetBudget));
   monthlyPlans[month]={productId:source.productId,plan};
  }
  return monthlyPlans;
